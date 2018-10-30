@@ -1,0 +1,75 @@
+import logging
+
+
+
+
+class DynamoDBDataAbstractionService(Object):
+    # Mapping of Python Class Variables to DynamoDB Attribute Names in Workload Table
+    WORKLOAD_SPEC_TABLE_NAME = 'WorkloadSpecification'
+    WORKLOAD_SPEC_PARTITION_KEY = 'SpecName'
+
+    def __init__(self, loglevel):
+      self.dynamoDBRegion="us-west-2";
+      self.dynDBC=nil;
+      self.logger = logging.getLogger();
+      self.logger.setLevel(loglevel);
+
+    def makeDynamoDBConnection(self):
+      try:
+        self.dynDBC = boto3.client('dynamodb', region_name=self.dynamoDBRegion)
+      except Exception as e:
+        msg = 'Exception obtaining botot3 dynamodb client in region %s -->' % self.workloadRegion
+        logger.error(msg + str(e))
+
+
+    def getDynamoDBConnection(self):
+      # Check if connection open,
+      #   return connection
+      # else
+      #   establish connection
+      #   return connection
+      if(self.dynDBC):
+        return(self.dynDBC)
+      else:
+        return( self.makeDynamoDBConnection() );
+
+    def lookupWorkloadSpecification(self, partitionTargetValue):
+      workloadSpecificationDict = {}
+
+      try:
+        dynDBC = getDynamoDBConnection();
+
+        dynamodbItem = self.dynDBC.get_item(
+          TableName=self.WORKLOAD_SPEC_TABLE_NAME,
+          Key={
+            self.WORKLOAD_SPEC_PARTITION_KEY: {"S": partitionTargetValue}
+          },
+          ConsistentRead=False,
+        )
+      except ClientError as e:
+        logger.error('lookupWorkloadSpecification()' + e.response['Error']['Message'])
+      else:
+        # Get the dynamoDB Item from the result
+        resultItem = dynamodbItem['Item']
+
+        for attributeName in resultItem:
+          # Validate the attributes entered into DynamoDB are valid.  If not, spit out individual warning messages
+          if (attributeName in self.workloadSpecificationValidAttributeList):
+            attributeValue = resultItem[attributeName].values()[0]
+            logger.info('Workload Attribute [%s maps to %s]' % (attributeName, attributeValue))
+            workloadSpecificationDict[attributeName] = attributeValue
+          else:
+            logger.warning('Invalid dynamoDB attribute specified->' + str(attributeName) + '<- will be ignored')
+
+      return (workloadSpecificationDict);
+
+
+
+  #  Per Boto Docs
+# #dynamodb = boto3.resource('dynamodb')
+# #table = dynamodb.Table('name')
+#
+#
+# #dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+# #table = dynamodb.Table('elasticsearch-backups')
+# #today = datetime.date.today()
