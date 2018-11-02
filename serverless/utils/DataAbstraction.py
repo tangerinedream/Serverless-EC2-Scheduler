@@ -1,5 +1,6 @@
 import logging
 import boto3
+import json
 from botocore.exceptions import ClientError
 
 
@@ -49,20 +50,19 @@ class DynamoDBDataAbstractionService(object):
           },
           ConsistentRead=False,
         )
+
       except ClientError as e:
         logger.error('lookupWorkloadSpecification()' + e.response['Error']['Message'])
       else:
         # Get the dynamoDB Item from the result
-        resultItem = dynamodbItem['Item']
+        workloadItem = dynamodbItem['Item']
 
-        for attributeName in resultItem:
-          # Validate the attributes entered into DynamoDB are valid.  If not, spit out individual warning messages
-          if (attributeName in self.workloadSpecificationValidAttributeList):
-            attributeValue = resultItem[attributeName].values()[0]
-            logger.info('Workload Attribute [%s maps to %s]' % (attributeName, attributeValue))
-            workloadSpecificationDict[attributeName] = attributeValue
-          else:
-            logger.warning('Invalid dynamoDB attribute specified->' + str(attributeName) + '<- will be ignored')
+        # Strip out the DynamoDB value type dictionary
+        for attrKey, attrValueDynamo in workloadItem.items():
+          attrValue = list(attrValueDynamo.values())[0];       # new for python 3.  Assumes data type is String
+          logger.info('Workload Attribute [%s maps to %s]' % (attrValue, attrValue));
+          workloadSpecificationDict[attrKey] = attrValue;
+          # workloadsResultList.append(currWorkloadDict)
 
       return (workloadSpecificationDict);
 
@@ -86,7 +86,7 @@ class DynamoDBDataAbstractionService(object):
         # Get the dynamoDB Item from the result
         workloadResultsList = dynamodbItems['Items'];
 
-
+        # Strip out the DynamoDB value type dictionary
         for workload in workloadResultsList:
 
           currWorkloadDict = {};
@@ -100,14 +100,24 @@ class DynamoDBDataAbstractionService(object):
 
       return(workloadsResultList);
 
+
 if __name__ == "__main__":
   # setup logging service
-  logger = logging.getLogger()
+  logger = logging.getLogger();
   logLevel = logging.INFO
 
   # setup data service
   dataService = DynamoDBDataAbstractionService(logLevel);
-  dataService.lookupWorkloads();
+
+  # Test lookupWorkloads()
+  print("Testing lookupWorkloads()");
+  workloadsRes = dataService.lookupWorkloads();
+  print(json.dumps(workloadsRes, indent=2));
+
+  # Test lookupWorkloads()
+  print("Testing lookupWorkloadSpecification(SimpleWorkloadExample)");
+  workloadRes = dataService.lookupWorkloadSpecification('SimpleWorkloadExample');
+  print(json.dumps(workloadRes, indent=2));
 
 
 
