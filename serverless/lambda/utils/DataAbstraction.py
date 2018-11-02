@@ -22,7 +22,7 @@ class DynamoDBDataAbstractionService(object):
         self.dynDBC = boto3.client('dynamodb', region_name=self.dynamoDBRegion)
       except Exception as e:
         msg = 'Exception obtaining botot3 dynamodb client in region %s -->' % self.dynamoDBRegion
-        logger.error(msg + str(e))
+        self.logger.error(msg + str(e))
       return( self.dynDBC );
 
 
@@ -52,7 +52,7 @@ class DynamoDBDataAbstractionService(object):
         )
 
       except ClientError as e:
-        logger.error('lookupWorkloadSpecification()' + e.response['Error']['Message'])
+        self.logger.error('lookupWorkloadSpecification()' + e.response['Error']['Message'])
       else:
         # Get the dynamoDB Item from the result
         workloadItem = dynamodbItem['Item']
@@ -60,7 +60,7 @@ class DynamoDBDataAbstractionService(object):
         # Strip out the DynamoDB value type dictionary
         for attrKey, attrValueDynamo in workloadItem.items():
           attrValue = list(attrValueDynamo.values())[0];       # new for python 3.  Assumes data type is String
-          logger.info('Workload Attribute [%s maps to %s]' % (attrValue, attrValue));
+          self.logger.info('Workload Attribute [%s maps to %s]' % (attrKey, attrValue));
           workloadSpecificationDict[attrKey] = attrValue;
           # workloadsResultList.append(currWorkloadDict)
 
@@ -80,7 +80,7 @@ class DynamoDBDataAbstractionService(object):
         )
 
       except ClientError as e:
-        logger.error('lookupWorkloads()' + e.response['Error']['Message'])
+        self.logger.error('lookupWorkloads()' + e.response['Error']['Message'])
 
       else:
         # Get the dynamoDB Item from the result
@@ -94,7 +94,7 @@ class DynamoDBDataAbstractionService(object):
           for workloadAttrKey, workloadAttrVal in workload.items():
             workloadVal = list(workloadAttrVal.values())[0];       # new for python 3
             currWorkloadDict[workloadAttrKey] = workloadVal;  
-            logger.info('Workload Attribute [%s maps to %s]' % (workloadAttrKey, workloadVal));
+            self.logger.info('Workload Attribute [%s maps to %s]' % (workloadAttrKey, workloadVal));
 
           workloadsResultList.append(currWorkloadDict)
 

@@ -1,11 +1,13 @@
 import json
-from DataAbstraction import DynamoDBDataAbstractionService
 import logging
+from utils.DataAbstraction import DynamoDBDataAbstractionService
 
-
-logger = logging.getLogger()
+#setup logging service
+logger = logging.getLogger();
 logLevel = logging.INFO
-dataService = nil
+
+#setup data service
+dataService = DynamoDBDataAbstractionService(logLevel);
 
 
 def lambda_handler(event, context):
@@ -16,15 +18,16 @@ def lambda_handler(event, context):
 
 
   # get data services
-  if( dataService == nil ):
+  global dataService
+  if( dataService == None ):
     dataService = DynamoDBDataAbstractionService();
 
   # Lookup workload details
   result = dataService.lookupWorkloads();
 
-  # return workload details
+  # return workloads as list of dictionaries
   return (result);
-  # return workload identifiers as list of dictionaries
+
 
 
 

@@ -1,28 +1,27 @@
 import json
-from DataAbstraction import DynamoDBDataAbstractionService
 import logging
+from utils.DataAbstraction import DynamoDBDataAbstractionService
 
-#setup logging service
-logger = logging.getLogger()
+# setup logging service
+logger = logging.getLogger();
 logLevel = logging.INFO
 
-#setup data service
+# setup data service
 dataService = DynamoDBDataAbstractionService(logLevel);
 
 
 def lambda_handler(event, context):
-
   # Informational logging
   logger.setLevel(logLevel);
-
   logger.info("Received event: " + json.dumps(event, indent=2));
-  logger.info("Scheduler: workload = " + event['workload']);
 
   # Extract workload identifier
-  workloadSpecName = event['workload'];
+  workloadSpecName = event['pathParameters']['workload'];
+  logger.info("Scheduler: workload = " + workloadSpecName);
 
   # get data services
-  if( dataService == nil ):
+  global dataService
+  if (dataService == None):
     dataService = DynamoDBDataAbstractionService();
 
   # Lookup workload details
