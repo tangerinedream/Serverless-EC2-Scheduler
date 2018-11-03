@@ -53,16 +53,19 @@ class DynamoDBDataAbstractionService(object):
 
       except ClientError as e:
         self.logger.error('lookupWorkloadSpecification()' + e.response['Error']['Message'])
-      else:
-        # Get the dynamoDB Item from the result
-        workloadItem = dynamodbItem['Item']
 
-        # Strip out the DynamoDB value type dictionary
-        for attrKey, attrValueDynamo in workloadItem.items():
-          attrValue = list(attrValueDynamo.values())[0];       # new for python 3.  Assumes data type is String
-          self.logger.info('Workload Attribute [%s maps to %s]' % (attrKey, attrValue));
-          workloadSpecificationDict[attrKey] = attrValue;
-          # workloadsResultList.append(currWorkloadDict)
+      else:
+        # Was the item found in DynamoDB
+        if( 'Item' in dynamodbItem):
+          # Get the dynamoDB Item from the result
+          workloadItem = dynamodbItem['Item']
+
+          # Strip out the DynamoDB value type dictionary
+          for attrKey, attrValueDynamo in workloadItem.items():
+            attrValue = list(attrValueDynamo.values())[0];       # new for python 3.  Assumes data type is String
+            self.logger.info('Workload Attribute [%s maps to %s]' % (attrKey, attrValue));
+            workloadSpecificationDict[attrKey] = attrValue;
+            # workloadsResultList.append(currWorkloadDict)
 
       return (workloadSpecificationDict);
 
@@ -115,8 +118,10 @@ if __name__ == "__main__":
   print(json.dumps(workloadsRes, indent=2));
 
   # Test lookupWorkloads()
-  print("Testing lookupWorkloadSpecification(SimpleWorkloadExample)");
-  workloadRes = dataService.lookupWorkloadSpecification('SimpleWorkloadExample');
+  #print("Testing lookupWorkloadSpecification(SimpleWorkloadExample)");
+  #workloadRes = dataService.lookupWorkloadSpecification('SimpleWorkloadExample');
+  #print(json.dumps(workloadRes, indent=2));
+  workloadRes = dataService.lookupWorkloadSpecification('NoWorkloadName');
   print(json.dumps(workloadRes, indent=2));
 
 

@@ -26,7 +26,15 @@ def lambda_handler(event, context):
   result = dataService.lookupWorkloads();
 
   # return workloads as list of dictionaries
-  return (result);
+  return (
+    {
+      'statusCode': 200,
+      'headers': {
+        'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'
+      },
+      'body': result,
+    }
+  );
 
 
 

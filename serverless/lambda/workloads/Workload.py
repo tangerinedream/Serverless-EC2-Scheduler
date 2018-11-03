@@ -16,7 +16,7 @@ def lambda_handler(event, context):
   logger.info("Received event: " + json.dumps(event, indent=2));
 
   # Extract workload identifier
-  workloadSpecName = event['pathParameters']['workload'];
+  workloadSpecName = event['params']['path']['workload'];
   logger.info("Scheduler: workload = " + workloadSpecName);
 
   # get data services
@@ -28,4 +28,12 @@ def lambda_handler(event, context):
   result = dataService.lookupWorkloadSpecification(workloadSpecName);
 
   # return workload details
-  return (result);
+  return (
+    {
+      'statusCode': 200,
+      'headers': {
+        'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'
+      },
+      'body': result,
+    }
+  );
