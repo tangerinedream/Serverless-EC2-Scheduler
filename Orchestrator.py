@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import boto3
-import json
 import time
 import datetime
 import argparse
@@ -480,7 +479,8 @@ class Orchestrator(object):
 
 		# If the Optional VPC ID was provided to further tighten the filter, include it.
 		if( Orchestrator.WORKLOAD_VPC_ID_KEY in self.workloadSpecificationDict ):
-			vpc_filter_dict_element = { 
+
+			vpc_filter_dict_element = {
 				'Name': 'vpc-id', 
 		        'Values': [self.workloadSpecificationDict[Orchestrator.WORKLOAD_VPC_ID_KEY]]
 			}
@@ -488,7 +488,7 @@ class Orchestrator(object):
 			logger.debug('VPC_ID provided, Filter List is %s' % str(targetFilter))
 
 		# Filter the instances
-		# NOTE: Only instances within the specified region are returned
+		# NOTE: Only instances within the specified region and VPC within region are returned
 		targetInstanceColl = {}
 		try:
 			targetInstanceColl = sorted(self.ec2R.instances.filter(Filters=targetFilter))
