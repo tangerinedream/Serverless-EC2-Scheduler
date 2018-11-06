@@ -38,11 +38,13 @@ class DataServices(object):
   def __init__(self, dynamoDBRegion, loglevel):
     self.logger = logging.getLogger(__name__);
     self.logger.setLevel(loglevel);
+    self.logger.addHandler(logging.StreamHandler());
     self.dynamoDBRegion = dynamoDBRegion;
 
     self.dynDBC = self.makeDynamoDBConnection();
 
     self.dynDBR = self.makeDynamoDBResource();
+
     self.tierSpecTable = self.dynDBR.Table(DataServices.TIER_SPEC_TABLE_NAME)
     print('hello')
 

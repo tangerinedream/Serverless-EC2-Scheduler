@@ -7,35 +7,49 @@ from redo import retriable  # https://github.com/mozilla-releng/redo
 
 class NotificationServices(object):
 
-  def __init__(self, topic, workload, region, logLevel):
+  '''
+  Invoke outside of lambda_handler fcn.  That is, invoke once.
+  This allows for the api based resources to be created once per cold start
+  '''
+  def __init__(self, logLevel):
     self.logger = logging.getLogger(__name__)
     self.logger.setLevel(logLevel);
+    self.logger.addHandler(logging.StreamHandler());
+    self.snsResource = None;
+    self.snsMap = {};  # form is { region: botoObject, region: botoObject, ... ]
+
+
+  def initializeRequestState(self, topic, workload, region):
+    '''
+    Invoke each time lambda_handler is called, as these may change per lambda invocation
+    '''
     self.topic = topic
     self.workload = workload
     self.region = region
-    self.snsResource = None
+    self.snsResource = self.getSNSResource(region);
+
+
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
-  def makeSNSResource(self):
+  def makeSNSResource(self, region):
     try:
       self.logger.debug('obtaining boto3 sns resource ');
-      self.snsResource = boto3.resource('sns', region_name=self.region);
+      self.snsResource = boto3.resource('sns', region_name=region);
     except Exception as e:
-      msg = 'Exception obtaining botot3 sns resource in region %s -->' % self.region
+      msg = 'Exception obtaining botot3 sns resource in region %s -->' % region
       self.logger.error(msg + str(e));
     return (self.snsResource);
 
-  def getSNSResource(self):
-    if (self.snsResource):
-      return (self.snsResource)
-    else:
-      return (self.makeSNSResource());
+  def getSNSResource(self, region):
+    if(region not in self.snsMap):
+      self.snsMap[region] = self.makeSNSResource(region);
+
+    return(self.snsMap[region])
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def sendSns(self, subject, message):
     try:
-      sns = self.getSNSResource();
-      topic = sns.create_topic(Name=self.topic)  # This action is idempotent.
+      topic = self.snsResource.create_topic(Name=self.topic)  # This action is idempotent.
       topic.publish(Subject=subject, Message=str(" Workload : " + self.workload + '\n') + str(" Exception : " + message))
     except Exception as e:
       self.logger.error('Error sending SNS message.  Exception is %s' % str(e) )
@@ -46,5 +60,6 @@ if __name__ == "__main__":
   topic = 'SchedulerTesting'
 
   # setup data service
-  notificationService = NotificationServices(topic, 'TestWorkloadName', 'us-west-2', logLevel);
+  notificationService = NotificationServices(logLevel);
+  notificationService.initializeRequestState(topic, 'TestWorkloadName', 'us-west-2');
   notificationService.sendSns('Test Subject', 'Test Exception Message')

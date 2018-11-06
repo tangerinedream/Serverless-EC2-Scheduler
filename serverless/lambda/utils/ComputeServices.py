@@ -8,6 +8,7 @@ from redo import retriable, retry  # See action function  https://github.com/moz
 # CloudWatch Logs
 import watchtower
 from NotificationServices import NotificationServices
+#import NotificationServices
 #from utils import NotificationServices
 
 
@@ -32,14 +33,32 @@ class ComputeServices(object):
     80: "stopped"
   }
 
-  def __init__(self, snsService, workloadRegion, loglevel):
+
+  def __init__(self, loglevel):
+    '''
+    Invoke outside of lambda_handler fcn.  That is, invoke once.
+    This allows for the api based resources to be created once per cold start
+    '''
     self.logger = logging.getLogger(__name__)
     self.logger.setLevel(loglevel);
+    self.logger.addHandler(logging.StreamHandler());
+    self.ec2Resource = None
+    self.ec2Client =   None
+    self.elbClient =   None
+    self.ec2ResourceMap = {}
+    self.ec2ClientMap = {}
+    self.elbClientMap = {}
+
+
+  def initializeRequestState(self, snsService, workloadRegion):
+    '''
+    Invoke each time lambda_handler is called, as these may change per lambda invocation
+    '''
     self.snsService = snsService
     self.workloadRegion = workloadRegion;
-    self.ec2Resource = self.makeEC2ResourceConnection();
-    self.ec2Client = self.makeEC2ClientConnection();
-    self.elbClient = self.makeELBClientConnection();
+    self.ec2Resource = self.getEC2ResourceConnection(workloadRegion);
+    self.ec2Client =   self.getEC2ClientConnection(workloadRegion);
+    self.elbClient =   self.getELBClientConnection(workloadRegion);
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def lookupELBs(self):
@@ -47,16 +66,16 @@ class ComputeServices(object):
     try:
       elbsInRegion = self.elbClient.describe_load_balancers();
     except Exception as e:
-      msg = 'Exception obtaining ELBs in region %s --> %s' % (self.workloadRegion, e)
-      subject_prefix = "Scheduler Exception in %s" % self.workloadRegion
-      logger.error(msg + str(e))
+      msg = 'Exception obtaining ELBs in region %s --> %s' % (workloadRegion, e)
+      subject_prefix = "Scheduler Exception in %s" % workloadRegion
+      self.logger.error(msg + str(e))
       flag = False
 
     if (flag == False):
       try:
         self.snsService.sendSns("lookupELBs() has encountered an exception ", str(e));
       except Exception as e:
-        logger.error('Exception publishing SNS message %s' % str(e))
+        self.logger.error('Exception publishing SNS message %s' % str(e))
 
     return(elbsInRegion)
 
@@ -124,52 +143,53 @@ class ComputeServices(object):
   # Connection Factory
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   @retriable(attempts=5, sleeptime=0, jitter=0)
-  def makeEC2ResourceConnection(self):
+  def makeEC2ResourceConnection(self, workloadRegion):
     try:
       self.logger.debug('obtaining boto3 ec2 resource ');
-      self.ec2Resource = boto3.resource('ec2', region_name=self.workloadRegion);
+      self.ec2Resource = boto3.resource('ec2', region_name=workloadRegion);
     except Exception as e:
-      msg = 'Exception obtaining botot3 ec2 resource in region %s -->' % self.workloadRegion
+      msg = 'Exception obtaining botot3 ec2 resource in region %s -->' % workloadRegion
       self.logger.error(msg + str(e));
     return (self.ec2Resource);
 
-  def getEC2ResourceConnection(self):
-    if (self.ec2Resource):
-      return (self.ec2Resource)
-    else:
-      return (self.makeEC2ResourceConnection());
+  def getEC2ResourceConnection(self, workloadRegion):
+    if (workloadRegion not in self.ec2ResourceMap):
+      self.ec2ResourceMap[workloadRegion] = self.makeEC2ResourceConnection(workloadRegion);
+
+    return (self.ec2ResourceMap[workloadRegion])
+
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
-  def makeEC2ClientConnection(self):
+  def makeEC2ClientConnection(self, workloadRegion):
     try:
       self.logger.debug('obtaining boto3 ec2 client ');
-      self.ec2Client = boto3.client('ec2', region_name=self.workloadRegion);
+      self.ec2Client = boto3.client('ec2', region_name=workloadRegion);
     except Exception as e:
-      msg = 'Exception obtaining botot3 ec2 client in region %s -->' % self.workloadRegion
+      msg = 'Exception obtaining botot3 ec2 client in region %s -->' % workloadRegion
       self.logger.error(msg + str(e));
     return (self.ec2Client);
 
-  def getEC2ClientConnection(self):
-    if (self.ec2Client):
-      return (self.ec2Client)
-    else:
-      return (self.makeECClientConnection());
+  def getEC2ClientConnection(self, workloadRegion):
+    if (workloadRegion not in self.ec2ClientMap):
+      self.ec2ClientMap[workloadRegion] = self.makeEC2ClientConnection(workloadRegion);
+
+    return (self.ec2ClientMap[workloadRegion])
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
-  def makeELBClientConnection(self):
+  def makeELBClientConnection(self, workloadRegion):
     try:
       self.logger.debug('obtaining boto3 elb client ');
-      self.elbClient = boto3.client('elb', region_name=self.workloadRegion);
+      self.elbClient = boto3.client('elb', region_name=workloadRegion);
     except Exception as e:
       msg = 'Exception obtaining botot3 elb client in region %s -->' % self.workloadRegion
       self.logger.error(msg + str(e));
     return (self.elbClient);
 
-  def getELBClientConnection(self):
-    if (self.elbClient):
-      return (self.elbClient)
-    else:
-      return (self.makeELBClientConnection());
+  def getELBClientConnection(self, workloadRegion):
+    if (workloadRegion not in self.elbClientMap):
+      self.elbClientMap[workloadRegion] = self.makeELBClientConnection(workloadRegion);
+
+    return (self.elbClientMap[workloadRegion])
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   # Testing
@@ -179,9 +199,14 @@ if __name__ == "__main__":
   logLevel = logging.INFO
   region = 'us-west-2'
 
-  notificationService = NotificationServices('SchedulerTesting', 'TestWorkloadName', region, logLevel);
+  topic='SchedulerTesting'
+  workload='TestWorkloadName'
+  notificationService = NotificationServices(logLevel);
+  notificationService.initializeRequestState(topic, workload, region);
 
-  compService = ComputeServices(notificationService, region, logLevel);
+
+  compService = ComputeServices(logLevel);
+  compService.initializeRequestState(notificationService, region);
 
   # Test ELBs
   elbsInRegion = compService.lookupELBs();
