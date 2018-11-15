@@ -7,11 +7,14 @@ from boto3.dynamodb.conditions import Key, Attr
 
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
 
+import utils.LoggingServices
+
 
 class DataServices(object):
   # Mapping of Python Class Variables to DynamoDB Attribute Names in Workload Table
   WORKLOAD_SPEC_TABLE_NAME = 'WorkloadSpecification'
   WORKLOAD_SPEC_PARTITION_KEY = 'SpecName'
+  WORKLOAD_REGION= 'WorkloadRegion'
 
   TIER_SPEC_TABLE_NAME = 'TierSpecification'
   TIER_SPEC_PARTITION_KEY = 'SpecName'
@@ -35,10 +38,11 @@ class DataServices(object):
   FLEET_SUBSET = 'FleetSubset'
 
 
-  def __init__(self, dynamoDBRegion, loglevel):
-    self.logger = logging.getLogger(__name__);
-    self.logger.setLevel(loglevel);
-    self.logger.addHandler(logging.StreamHandler());
+  def __init__(self, dynamoDBRegion, logLevelStr):
+    self.logger = utils.LoggingServices.makeLogger(__name__, logLevelStr);
+    # self.logger = logging.getLogger(__name__);
+    # self.logger.setLevel(loglevel);
+    # self.logger.addHandler(logging.StreamHandler());
     self.dynamoDBRegion = dynamoDBRegion;
 
     self.dynDBC = self.makeDynamoDBConnection();
@@ -58,9 +62,10 @@ class DataServices(object):
       DataServices.TIER_SCALING,
       DataServices.TIER_NAME,
       DataServices.TIER_SEQ_NBR,
-      DataServices.TIER_SYCHRONIZATION,
-      DataServices.TIER_STOP_OVERRIDE_FILENAME,
-      DataServices.TIER_STOP_OS_TYPE,
+#     The following are not supported in the Serverless Version of the Scheduler
+#       DataServices.TIER_SYCHRONIZATION,
+#       DataServices.TIER_STOP_OVERRIDE_FILENAME,
+#       DataServices.TIER_STOP_OS_TYPE,
       DataServices.INTER_TIER_ORCHESTRATION_DELAY
     ]
 
@@ -71,7 +76,7 @@ class DataServices(object):
     Build a Dictionary (of Dictionaries).  Dictionary Keys are: TIER_START, TIER_STOP, TierScaleUp, TierScaleDown
     	Values are attributeValues of the DDB Item Keys
     '''
-    tierSpecificationDict = {}
+    tiersSpecificationDict = {}
 
     try:
       dynamodbItem = self.tierSpecTable.query(
@@ -99,28 +104,28 @@ class DataServices(object):
               self.logger.warning('Invalid dynamoDB attribute specified->' + str(badAttrKey) + '<- will be ignored')
 
           # Add the dictionary element for this tier to return.
-          tierSpecificationDict[currTier[DataServices.TIER_NAME]] = {}
+          tiersSpecificationDict[currTier[DataServices.TIER_NAME]] = {}
 
           # Create dict entry for each Tier
           # Pull out the Dictionaries for each of the sections below
           # Result is a key, and a dictionary
           if (DataServices.TIER_STOP in currTier):
-            tierSpecificationDict[currTier[DataServices.TIER_NAME]].update(
+            tiersSpecificationDict[currTier[DataServices.TIER_NAME]].update(
               {DataServices.TIER_STOP: currTier[DataServices.TIER_STOP]})
 
           if (DataServices.TIER_START in currTier):
-            tierSpecificationDict[currTier[DataServices.TIER_NAME]].update(
+            tiersSpecificationDict[currTier[DataServices.TIER_NAME]].update(
               {DataServices.TIER_START: currTier[DataServices.TIER_START]})
 
           if (DataServices.TIER_SCALING in currTier):
-            tierSpecificationDict[currTier[DataServices.TIER_NAME]].update(
+            tiersSpecificationDict[currTier[DataServices.TIER_NAME]].update(
               {DataServices.TIER_SCALING: currTier[DataServices.TIER_SCALING]})
 
             if (DataServices.FLEET_SUBSET in currTier):
-              tierSpecificationDict[currtier[DataServices.TIER_NAME]].update(
+              tiersSpecificationDict[currtier[DataServices.TIER_NAME]].update(
                 {DataServices.FLEET_SUBSET: currTier[DataServices.FLEET_SUBSET]})
 
-    return(tierSpecificationDict);
+    return(tiersSpecificationDict);
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def lookupWorkloadSpecification(self, workloadIdentifier):
@@ -197,6 +202,10 @@ class DataServices(object):
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   # Connection Factory
+  # Please note:
+  #   Unlike other Services, DataServices has no need to support multiple regions, as dynamoDB will always be accessed
+  #   from a single region.  Workloads differ as one APIG + Lambda + DynamoDB deployment can act on workloads in any
+  #   region.
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
@@ -244,15 +253,15 @@ if __name__ == "__main__":
   print(json.dumps(workloadsRes, indent=2));
 
   # Test lookupWorkloads()
-  # print("Testing lookupWorkloadSpecification(SimpleWorkloadExample)");
-  # workloadRes = dataService.lookupWorkloadSpecification('SimpleWorkloadExample');
-  # print(json.dumps(workloadRes, indent=2));
-  print("Testing lookupWorkloads()");
-  workloadRes = dataService.lookupWorkloadSpecification('NoWorkloadName');
+  print("Testing lookupWorkloadSpecification(SimpleWorkloadExample)");
+  workloadRes = dataService.lookupWorkloadSpecification('SimpleWorkloadExample');
   print(json.dumps(workloadRes, indent=2));
+  #print("Testing lookupWorkloads()");
+  #workloadRes = dataService.lookupWorkloadSpecification('NoWorkloadName');
+  #print(json.dumps(workloadRes, indent=2));
 
   print("Testing lookupTierSpecs()");
-  #tiersRes = dataService.lookupTierSpecs('BotoTestCase1');
-  tiersRes = dataService.lookupTierSpecs('SingleTierTest');
+  tiersRes = dataService.lookupTierSpecs('BotoTestCase1');
+  #tiersRes = dataService.lookupTierSpecs('SingleTierTest');
   print(json.dumps(tiersRes, indent=2));
 

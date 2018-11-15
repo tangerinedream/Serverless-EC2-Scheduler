@@ -4,6 +4,8 @@ import json
 
 from redo import retriable  # https://github.com/mozilla-releng/redo
 
+from utils import LoggingServices
+
 
 class NotificationServices(object):
 
@@ -11,10 +13,11 @@ class NotificationServices(object):
   Invoke outside of lambda_handler fcn.  That is, invoke once.
   This allows for the api based resources to be created once per cold start
   '''
-  def __init__(self, logLevel):
-    self.logger = logging.getLogger(__name__)
-    self.logger.setLevel(logLevel);
-    self.logger.addHandler(logging.StreamHandler());
+  def __init__(self, logLevelStr):
+    self.logger = LoggingServices.makeLogger(__name__, logLevelStr);
+    # self.logger = logging.getLogger(__name__)
+    # self.logger.setLevel(logLevel);
+    # self.logger.addHandler(logging.StreamHandler());
     self.snsResource = None;
     self.snsMap = {};  # form is { region: botoObject, region: botoObject, ... ]
 
@@ -43,6 +46,7 @@ class NotificationServices(object):
   def getSNSResource(self, region):
     if(region not in self.snsMap):
       self.snsMap[region] = self.makeSNSResource(region);
+      self.logger.info('Added {} based boto3 sns client'.format(region));
 
     return(self.snsMap[region])
 
@@ -62,4 +66,12 @@ if __name__ == "__main__":
   # setup data service
   notificationService = NotificationServices(logLevel);
   notificationService.initializeRequestState(topic, 'TestWorkloadName', 'us-west-2');
+  notificationService.sendSns('Test Subject', 'Test Exception Message')
+
+  # simulate new lambda request same region
+  notificationService.initializeRequestState(topic, 'TestWorkloadName', 'us-west-2');
+  notificationService.sendSns('Test Subject', 'Test Exception Message')
+
+  # simulate new lambda request different region
+  notificationService.initializeRequestState(topic, 'TestWorkloadName', 'us-east-1');
   notificationService.sendSns('Test Subject', 'Test Exception Message')

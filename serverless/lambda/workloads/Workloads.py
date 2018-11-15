@@ -1,29 +1,32 @@
 import json
 import logging
-from utils.DataAbstraction import DynamoDBDataAbstractionService
+import os
+from utils.DataServices import DataServices
 
 #setup logging service
-logger = logging.getLogger();
-logLevel = logging.INFO
+logLevel = os.environ['LOG_LEVEL']
+logger = logging.getLogger(__name__)
+logger.setLevel(logLevel);
 
-#setup data service
-dataService = DynamoDBDataAbstractionService(logLevel);
 
+# setup services
+dynamoDBRegion = os.environ['DYNAMODB_REGION']
+
+# Instantiation of these services provide boto3 connection pools across lambda invocations
+dataService =  DataServices(dynamoDBRegion, logLevel);
 
 def lambda_handler(event, context):
   # Informational logging
-  logger.setLevel(logLevel);
-
   logger.info("Received event: " + json.dumps(event, indent=2));
 
 
   # get data services
-  global dataService
-  if( dataService == None ):
-    dataService = DynamoDBDataAbstractionService();
+  # global dataService
+  # if( dataService == None ):
+  #   dataService = DataServices(dynamoDBRegion, logLevel);
 
   # Lookup workload details
-  result = dataService.lookupWorkloads();
+  workloads = dataService.lookupWorkloads();
 
   # return workloads as list of dictionaries
   return (
@@ -32,7 +35,7 @@ def lambda_handler(event, context):
       'headers': {
         'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'
       },
-      'body': result,
+      'body': workloads,
     }
   );
 

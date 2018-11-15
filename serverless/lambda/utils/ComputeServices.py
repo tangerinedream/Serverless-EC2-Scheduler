@@ -6,10 +6,12 @@ from botocore.exceptions import ClientError
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
 
 # CloudWatch Logs
-import watchtower
-from NotificationServices import NotificationServices
-#import NotificationServices
-#from utils import NotificationServices
+#import watchtower
+
+from utils.NotificationServices import NotificationServices
+from utils import LoggingServices
+from utils import ComputeServices
+
 
 
 class ComputeServices(object):
@@ -23,25 +25,36 @@ class ComputeServices(object):
   TIER_FILTER_TAG_KEY = 'TierFilterTagName'
   TIER_FILTER_TAG_VALUE = 'TierTagValue'
 
+  ACTION_START = 'Start'
+  ACTION_STOP = 'Stop'
+
+  TIER_STOP = 'TierStop'
+  TIER_START = 'TierStart'
+  TIER_SCALING = 'TierScaling'
+  TIER_SEQ_NBR = 'TierSequence'
+
+
+
   # These are the official codes per Boto3
   BOTO3_INSTANCE_STATE_MAP = {
-    0: "pending",
-    16: "running",
-    32: "shutting-down",
-    48: "terminated",
-    64: "stopping",
-    80: "stopped"
+    0: 'pending',
+    16: 'running',
+    32: 'shutting-down',
+    48: 'terminated',
+    64: 'stopping',
+    80: 'stopped'
   }
 
 
-  def __init__(self, loglevel):
+  def __init__(self, logLevelStr):
     '''
     Invoke outside of lambda_handler fcn.  That is, invoke once.
     This allows for the api based resources to be created once per cold start
     '''
-    self.logger = logging.getLogger(__name__)
-    self.logger.setLevel(loglevel);
-    self.logger.addHandler(logging.StreamHandler());
+    self.logger = LoggingServices.makeLogger(__name__, logLevelStr);
+    # self.logger = logging.getLogger(__name__)
+    # self.logger.setLevel(loglevel);
+    # self.logger.addHandler(logging.StreamHandler());
     self.ec2Resource = None
     self.ec2Client =   None
     self.elbClient =   None
@@ -50,15 +63,130 @@ class ComputeServices(object):
     self.elbClientMap = {}
 
 
-  def initializeRequestState(self, snsService, workloadRegion):
+  def initializeRequestState(self, dataServices, snsServices, workloadRegion):
     '''
     Invoke each time lambda_handler is called, as these may change per lambda invocation
     '''
-    self.snsService = snsService
+    self.snsServices = snsServices
+    self.dataServices = dataServices
     self.workloadRegion = workloadRegion;
     self.ec2Resource = self.getEC2ResourceConnection(workloadRegion);
     self.ec2Client =   self.getEC2ClientConnection(workloadRegion);
     self.elbClient =   self.getELBClientConnection(workloadRegion);
+
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # Actions
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  def actionStopWorkload(self, workloadName, dryRunFlag):
+    # Need the workload spec to correctly scope the search for instances
+    workloadSpec = self.dataServices.lookupWorkloadSpecification(workloadName);
+
+    # Sequence the Tiers within the workload
+    sequencedTiersList = self.getSequencedTierNames(workloadName, ComputeServices.ACTION_STOP);
+
+    # Iterate over the Sequenced Tiers of the workload to stop the running instances
+    for currTierName in sequencedTiersList:
+      self.logger.info('Stopping Tier: {}'.format(currTierName));
+
+      # For each tier, get the Instance State of each instance
+      tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
+
+      # Pull out the Stopped List within the Map
+      running = self.BOTO3_INSTANCE_STATE_MAP[16]
+      instancesToStop =  tierInstancesByInstanceStateDict[running]
+
+      # Stop each instance in the list
+      for currRunningInstance in instancesToStop:
+
+        result = 'Instance not Stopped'
+
+        if( dryRunFlag ):
+          self.logger.warning('DryRun Flag is set - instance will not be stopped')
+          continue;
+
+        try:
+          result = retry(currRunningInstance.stop, attempts=5, sleeptime=0, jitter=0)
+          self.logger.debug('Succesfully stopped EC2 instance {}'.format(currRunningInstance.id))
+          #logger.info('stopInstance() for ' + self.instance.id + ' result is %s' % result)
+        except Exception as e:
+          msg = 'ComputeServices.actionStopWorkload() Exception on instance {}, error {}'.format(currRunningInstance, str(e))
+          self.logger.warning(msg);
+          self.snsServices.sendSns('ComputeServices.actionStopWorkload()', msg);
+
+
+
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # Supporting Methods
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  def getTierInstancesByInstanceState(self, workloadSpecDict, tierName):
+    # Return the running and stopped instances through a dictoionary of Lists (running, stopped)
+    tierInstancesByStatesDict = {}
+
+
+    # Find the stopped instances of this tier
+    try:
+      stopped = self.BOTO3_INSTANCE_STATE_MAP[80]
+      stoppedInstancesList = self.lookupInstancesByFilter(workloadSpecDict, tierName, stopped)
+      tierInstancesByStatesDict[stopped] =  stoppedInstancesList
+    except Exception as e:
+      self.snsServices.sendSns("getTierInstancesByInstanceState() has encountered an exception", str(e))
+
+    # Find the running instances of this tier
+    try:
+      running = self.BOTO3_INSTANCE_STATE_MAP[16]
+      runningInstancesList = self.lookupInstancesByFilter(workloadSpecDict, tierName, running)
+      tierInstancesByStatesDict[running] =  runningInstancesList
+    except Exception as e:
+      self.snsServices.sendSns("getTierInstancesByInstanceState() has encountered an exception", str(e))
+
+    return(tierInstancesByStatesDict);
+
+  def getSequencedTierNames(self, workloadName, action):
+    # get the tiers
+    tierSpecsDict = self.dataServices.lookupTierSpecs(workloadName);
+
+    # Prefill list for easy insertion
+    #sequencedTierNameList = range(len(tierSpecsDict))
+    length = len(tierSpecsDict);
+    #sequencedTierNameList = list(0) * length;
+    sequencedTierNameList = list(0 for i in range(length));
+    #l = list(0 for i in range(len(a)))
+
+    # action indicates whether it is a TIER_STOP, or TIER_START, as they may have different sequences
+    # Sequence is ascending
+    for tierName, tierAttributes in tierSpecsDict.items():
+      self.logger.debug('sequenceTiers() Action={}, currKey={}, currAttributes={})'.format(action, tierName, tierAttributes))
+
+      # Grab the Tier Name of this item first
+      #tierName = currKey
+
+      # tierName = currAttributes[Orchestrator.TIER_NAME]
+
+      # This will be used to point to relevant dict within a specific tier's spec dict
+      tierActionAttributes = {}
+
+      if (action == ComputeServices.ACTION_STOP):
+        # Locate the TIER_STOP Dictionary
+        tierActionAttributes = tierAttributes[ComputeServices.TIER_STOP]
+
+      elif (action == Orchestrator.TIER_START):
+        tierActionAttributes = tierAttributes[ComputeServices.TIER_START]
+
+      # logger.info('In sequenceTiers(): tierAttributes is ', tierAttributes )
+
+      # Insert into the List
+      idx = int(tierActionAttributes[ComputeServices.TIER_SEQ_NBR]);
+      #sequencedTierNameList.insert(int(insertIdx), tierName);
+      sequencedTierNameList[idx] = tierName;
+
+    self.logger.debug('sequenceTiers() List for Action={} is {}'.format(action, sequencedTierNameList))
+
+    return (sequencedTierNameList)
+
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # Lookups
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def lookupELBs(self):
@@ -155,6 +283,7 @@ class ComputeServices(object):
   def getEC2ResourceConnection(self, workloadRegion):
     if (workloadRegion not in self.ec2ResourceMap):
       self.ec2ResourceMap[workloadRegion] = self.makeEC2ResourceConnection(workloadRegion);
+      self.logger.info('Added {} based boto3 ec2 resource'.format(workloadRegion));
 
     return (self.ec2ResourceMap[workloadRegion])
 
@@ -172,6 +301,7 @@ class ComputeServices(object):
   def getEC2ClientConnection(self, workloadRegion):
     if (workloadRegion not in self.ec2ClientMap):
       self.ec2ClientMap[workloadRegion] = self.makeEC2ClientConnection(workloadRegion);
+      self.logger.info('Added {} based boto3 ec2 client'.format(workloadRegion));
 
     return (self.ec2ClientMap[workloadRegion])
 
@@ -188,6 +318,7 @@ class ComputeServices(object):
   def getELBClientConnection(self, workloadRegion):
     if (workloadRegion not in self.elbClientMap):
       self.elbClientMap[workloadRegion] = self.makeELBClientConnection(workloadRegion);
+      self.logger.info('Added {} based boto3 elb client'.format(workloadRegion));
 
     return (self.elbClientMap[workloadRegion])
 
@@ -200,13 +331,13 @@ if __name__ == "__main__":
   region = 'us-west-2'
 
   topic='SchedulerTesting'
-  workload='TestWorkloadName'
+  workloadName='TestWorkloadName'
   notificationService = NotificationServices(logLevel);
-  notificationService.initializeRequestState(topic, workload, region);
+  notificationService.initializeRequestState(topic, workloadName, region);
 
 
   compService = ComputeServices(logLevel);
-  compService.initializeRequestState(notificationService, region);
+  compService.initializeRequestState(notificationService, workloadName, region);
 
   # Test ELBs
   elbsInRegion = compService.lookupELBs();
