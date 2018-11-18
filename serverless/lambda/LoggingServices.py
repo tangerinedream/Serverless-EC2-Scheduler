@@ -20,5 +20,6 @@ def makeLogger(name, logLevelStr):
     logLevel = loggingMap['logging.INFO'];  # default to INFO
 
   logger.setLevel(logLevel);
-  logger.addHandler(logging.StreamHandler());
+  if( not logger.hasHandlers() ):
+    logger.addHandler(logging.StreamHandler());
   return (logger);

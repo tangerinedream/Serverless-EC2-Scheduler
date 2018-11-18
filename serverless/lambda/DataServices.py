@@ -7,7 +7,7 @@ from boto3.dynamodb.conditions import Key, Attr
 
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
 
-import utils.LoggingServices
+from LoggingServices import makeLogger
 
 
 class DataServices(object):
@@ -39,7 +39,7 @@ class DataServices(object):
 
 
   def __init__(self, dynamoDBRegion, logLevelStr):
-    self.logger = utils.LoggingServices.makeLogger(__name__, logLevelStr);
+    self.logger = makeLogger(__name__, logLevelStr);
     # self.logger = logging.getLogger(__name__);
     # self.logger.setLevel(loglevel);
     # self.logger.addHandler(logging.StreamHandler());
@@ -50,7 +50,6 @@ class DataServices(object):
     self.dynDBR = self.makeDynamoDBResource();
 
     self.tierSpecTable = self.dynDBR.Table(DataServices.TIER_SPEC_TABLE_NAME)
-    print('hello')
 
     # Create a List of valid dynamoDB attributes to address user typos in dynamoDB table
     self.tierSpecificationValidAttributeList = [

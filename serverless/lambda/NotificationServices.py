@@ -4,7 +4,7 @@ import json
 
 from redo import retriable  # https://github.com/mozilla-releng/redo
 
-from utils import LoggingServices
+from LoggingServices import makeLogger
 
 
 class NotificationServices(object):
@@ -14,10 +14,7 @@ class NotificationServices(object):
   This allows for the api based resources to be created once per cold start
   '''
   def __init__(self, logLevelStr):
-    self.logger = LoggingServices.makeLogger(__name__, logLevelStr);
-    # self.logger = logging.getLogger(__name__)
-    # self.logger.setLevel(logLevel);
-    # self.logger.addHandler(logging.StreamHandler());
+    self.logger = makeLogger(__name__, logLevelStr);
     self.snsResource = None;
     self.snsMap = {};  # form is { region: botoObject, region: botoObject, ... ]
 

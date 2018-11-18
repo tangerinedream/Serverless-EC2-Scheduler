@@ -8,9 +8,8 @@ from redo import retriable, retry  # See action function  https://github.com/moz
 # CloudWatch Logs
 #import watchtower
 
-from utils.NotificationServices import NotificationServices
-from utils import LoggingServices
-from utils import ComputeServices
+from NotificationServices import NotificationServices
+from LoggingServices import makeLogger
 
 
 
@@ -51,10 +50,7 @@ class ComputeServices(object):
     Invoke outside of lambda_handler fcn.  That is, invoke once.
     This allows for the api based resources to be created once per cold start
     '''
-    self.logger = LoggingServices.makeLogger(__name__, logLevelStr);
-    # self.logger = logging.getLogger(__name__)
-    # self.logger.setLevel(loglevel);
-    # self.logger.addHandler(logging.StreamHandler());
+    self.logger = makeLogger(__name__, logLevelStr);
     self.ec2Resource = None
     self.ec2Client =   None
     self.elbClient =   None
