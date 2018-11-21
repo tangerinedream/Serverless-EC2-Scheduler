@@ -51,7 +51,8 @@ phases:
 #    run-as: Linux-user-name
     commands:
       - echo Entered the [build] phase...
-      - zip -rj serverless/lambda/scheduler-workloadproxy.zip  buildDir/*
+      - cd buildDir
+      - zip -r ../serverless/lambda/scheduler-workloadproxy.zip  .
 #      - command
 #    finally:
 #      - command
