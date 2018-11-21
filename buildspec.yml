@@ -1,0 +1,86 @@
+version: 0.2
+
+#run-as: Linux-user-name  # optional.  Otherwise runs as root
+
+#env:
+#  variables:
+#    key: "value"
+#    key: "value"
+#  parameter-store:
+#    key: "value"
+#    key: "value"
+
+phases:
+  install:
+#    run-as: Linux-user-name
+    commands:
+      - echo Entered the [install] phase...
+      # install dependencies for scheduler
+      # install pip installer
+      - echo apt updating
+      - sudo apt update -y
+
+      - echo installing python3-pip
+      - sudo apt install -y python3-pip
+
+      - echo installing zip
+      - sudo apt install -y zip
+#    finally:
+#      - command
+#      - command
+  pre_build:
+#    run-as: Linux-user-name
+    commands:
+      - echo Entered the [pre_build] phase...
+      - echo "Code source build directory is $CODEBUILD_SRC_DIR"
+
+      - echo creating build directory buildDir
+      - mkdir buildDir
+
+      - echo Copying python files to build directory
+      - mv serverless/lambda/*.py buildDir
+
+      # install retry module
+      - echo installing retry module in buildDir
+      - sudo pip3 install retry -t buildDir
+#    finally:
+#      - command
+#      - command
+  build:
+#    run-as: Linux-user-name
+    commands:
+      - echo Entered the [build] phase...
+      - zip -r -j serverless/lambda/scheduler-workloadproxy.zip  buildDir/*
+#      - command
+#    finally:
+#      - command
+#      - command
+  post_build:
+    commands:
+      # Enter zip command to construct the zip file
+      - echo Entered the [post_build] phase...
+#    finally:
+#      - command
+#      - command
+artifacts:
+  files:
+    - serverless/lambda/scheduler-workloadproxy.zip
+  discard-paths: no
+#  base-directory: location
+#  secondary-artifacts:
+#    artifactIdentifier:
+#      files:
+#        - location
+#        - location
+#      discard-paths: yes
+#      base-directory: location
+#    artifactIdentifier:
+#      files:
+#        - location
+#        - location
+#      discard-paths: yes
+#      base-directory: location
+#cache:
+#  paths:
+#    - path
+#    - path
