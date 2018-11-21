@@ -1,0 +1,129 @@
+openapi: "3.0.1"
+
+info:
+  title: SchedulerOpenAPI
+  description: This is the api spec for the scheduler located at https://github.com/tangerinedream/AWS_EC2_Scheduler
+  termsOfService: https://github.com/tangerinedream/AWS_EC2_Scheduler
+  contact:
+    name: API Support
+    url: https://github.com/tangerinedream/AWS_EC2_Scheduler
+  license:
+    name: GNU General Public License v3.0
+    url: https://github.com/tangerinedream/AWS_EC2_Scheduler/blob/master/LICENSE
+  version: 0.0.1
+
+# Not sure this will work, or will be ignored by AWS
+servers:
+#- url: "https://{ServerlessRestApi}.execute-api.{AWSRegion}.amazonaws.com/{basePath}"
+- url: https://eb63p38bu5.execute-api.us-west-2.amazonaws.com/{basePath}
+  variables:
+    basePath:
+      default: "/dev"
+  description: Development server
+
+# Components Object
+# Holds a set of reusable objects for different aspects of the OAS.
+# All objects defined within the components object will have no effect on the API unless they are explicitly referenced
+#   from properties outside the components object.
+components:
+  schemas:
+    Empty:
+      title: "Empty Schema"
+      type: "object"
+    WorkloadModel:
+      title: WorkloadModel
+      type: object
+      properties:
+        workloads:
+          type: array
+          items:
+            type: object
+            properties:
+              SpecName:
+                type: string
+#                example: myWorkload1
+
+
+
+paths:
+  /workloads:
+    get:
+      description: Returns all workloads
+      responses:
+        '200':
+          description: A list of workloads.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkloadModel'
+                  
+  /workloads/{workload}:
+    get:
+      description: Returns specific workload details for the provided workload identifier (the Workload SpecName).
+      parameters:
+      - name: "workload"
+        in: "path"
+        required: true
+        schema:
+          type: "string"
+      responses:
+        '200':
+          description: "200 response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+
+  /workloads/{workload}/stop:
+    get:
+      description: Stops the workload of the provided workload identifier (the Workload SpecName).
+      parameters:
+      - name: "workload"
+        in: "path"
+        required: true
+        schema:
+          type: "string"
+      responses:
+        '200':
+          description: "200 response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+
+  /workloads/{workload}/start:
+    get:
+      description: Starts the workload of the provided workload identifier (the Workload SpecName).
+      parameters:
+      - name: "workload"
+        in: "path"
+        required: true
+        schema:
+          type: "string"
+      responses:
+        '200':
+          description: "200 response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+
+  /workloads/{workload}/start/{profile}:
+    get:
+      description: Starts the workload of the provided workload identifier (the Workload SpecName) in the provided profile.
+      parameters:
+      - name: profile
+        in: "path"
+        required: true
+        schema:
+          type: "string"
+      responses:
+        '200':
+          description: "200 response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+
