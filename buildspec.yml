@@ -42,7 +42,7 @@ phases:
       - mv serverless/lambda/*.py buildDir
 
       - echo Copying appspec.yml files to build directory
-      - mv serverless/lambda/appspec.yml buildDir
+      - mv appspec.yml buildDir
 
       # install retry module
       - echo installing retry module in buildDir
