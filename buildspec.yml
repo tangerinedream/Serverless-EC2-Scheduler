@@ -41,6 +41,9 @@ phases:
       - echo Copying python files to build directory
       - mv serverless/lambda/*.py buildDir
 
+      - echo Copying appspec.yml files to build directory
+      - mv serverless/lambda/appspec.yml buildDir
+
       # install retry module
       - echo installing retry module in buildDir
       - sudo pip3 install retry -t buildDir
