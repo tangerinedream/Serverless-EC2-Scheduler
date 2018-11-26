@@ -1,4 +1,3 @@
----
 version: 0.0
 Resources:
   - workloadProxy:
@@ -9,5 +8,5 @@ Resources:
         CurrentVersion: "0"
         TargetVersion: "0"
 Hooks:
-    - BeforeAllowTraffic: ""
-    - AfterAllowTraffic: ""
+  - BeforeAllowTraffic: ""
+  - AfterAllowTraffic: ""
