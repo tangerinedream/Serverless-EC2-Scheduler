@@ -1,0 +1,13 @@
+version: 0.0
+Resources:
+- workloadProxy:
+    Type: "AWS::Lambda::Function"
+    Properties:
+#      Name: "arn:aws:lambda:us-west-2:794080210573:function:scheduler-workloadProxy"
+      Name: "scheduler-workloadProxy"
+      Alias: "DEV"
+      CurrentVersion: "3"
+      TargetVersion: "3"
+#Hooks:
+#- BeforeAllowTraffic: ""
+#- AfterAllowTraffic: ""
