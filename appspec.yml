@@ -1,3 +1,4 @@
+---
 version: 0.0
 Resources:
   - workloadProxy:
@@ -7,6 +8,6 @@ Resources:
         Alias: "DEV"
         CurrentVersion: "0"
         TargetVersion: "0"
-#Hooks:
-#    - BeforeAllowTraffic: "LambdaFunctionToValidateBeforeTrafficShift"
-#    - AfterAllowTraffic: "LambdaFunctionToValidateAfterTrafficShift"
+Hooks:
+    - BeforeAllowTraffic: ""
+    - AfterAllowTraffic: ""
