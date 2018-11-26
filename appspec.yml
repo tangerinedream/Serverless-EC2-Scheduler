@@ -1,7 +1,7 @@
 version: 0.0
 Resources:
   - workloadProxy:
-      Type: AWS::Lambda::Function
+      Type: "AWS::Lambda::Function"
       Properties:
         Name: "scheduler-workloadProxy"
         Alias: "DEV"
