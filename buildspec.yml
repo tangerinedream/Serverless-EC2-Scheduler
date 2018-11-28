@@ -41,8 +41,8 @@ phases:
       - echo Copying python files to build directory
       - mv serverless/lambda/*.py buildDir
 
-      - echo Copying appspec.yml files to build directory
-      - mv appspec.yaml buildDir
+#      - echo Copying appspec.yml files to build directory
+#      - mv appspec.yaml buildDir
 
       # install retry module
       - echo installing retry module in buildDir
@@ -70,6 +70,7 @@ phases:
 artifacts:
   files:
     - serverless/lambda/scheduler-workloadproxy.zip
+    - appspec.yaml
   discard-paths: yes
 #  base-directory: location
 #  secondary-artifacts:
