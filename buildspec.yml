@@ -68,11 +68,11 @@ phases:
 #      - command
 artifacts:
   files:
-     - '**/*'
-#    - serverless/lambda/scheduler-workloadproxy.zip
-#    - appspec.yaml
+#     - '**/*'
+    - serverless/lambda/scheduler-workloadproxy.zip
+    - appspec.yaml
   discard-paths: yes
-  base-directory: buildDir
+#  base-directory: buildDir
 #  secondary-artifacts:
 #    artifactIdentifier:
 #      files:
