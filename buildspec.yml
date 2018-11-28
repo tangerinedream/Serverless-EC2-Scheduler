@@ -62,17 +62,17 @@ phases:
 #      - command
   post_build:
     commands:
-      # Enter zip command to construct the zip file
       - echo Entered the [post_build] phase...
 #    finally:
 #      - command
 #      - command
 artifacts:
   files:
-    - serverless/lambda/scheduler-workloadproxy.zip
-    - appspec.yaml
+     - **/*
+#    - serverless/lambda/scheduler-workloadproxy.zip
+#    - appspec.yaml
   discard-paths: yes
-#  base-directory: location
+  base-directory: buildDir
 #  secondary-artifacts:
 #    artifactIdentifier:
 #      files:
