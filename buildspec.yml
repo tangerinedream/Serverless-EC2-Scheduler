@@ -64,7 +64,8 @@ phases:
       - echo "===== Entered the [build] phase ====="
       - cd buildDir
       - echo "+++++ ziping scheduler-workloadproxy.zip +++++"
-      - zip --recurse-paths ../serverless/lambda/ -output-file ./scheduler-workloadproxy.zip
+      - zip -r buildDir/scheduler-workloadproxy.zip ../serverless/lambda
+#      - zip --recurse-paths ../serverless/lambda/ -output-file ./scheduler-workloadproxy.zip
       - echo "++++ pwd is `pwd`.  Finding the zip file ???"
       - find $CODEBUILD_SRC_DIR -name scheduler-workloadproxy.zip -print
 
