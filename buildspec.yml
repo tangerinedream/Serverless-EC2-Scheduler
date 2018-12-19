@@ -73,11 +73,11 @@ phases:
     commands:
       - echo "===== Entered the [post_build] phase ====="
       - echo "+++++ Transforming SAM to CF +++++"
+      - echo "++++ pwd is `pwd`"
+      - ls -lR
       - aws cloudformation package --template-file SAM.cf.yaml --s3-bucket us-west-2-309887469609 --output-template-file packagedSAM.yaml
 
-      - echo "++++ pwd prior to CF is `pwd`"
-      - echo "ls -lR"
-      - ls -lR
+
 #      - echo "+++++ Staging SAM.cf.yaml to build directory +++++"
 #      - cp SAM.cf.yaml buildDir
       - echo "+++++ Deploying Scheduler-Workload-Stack +++++"
