@@ -65,8 +65,8 @@ phases:
       - cd buildDir
       - echo "+++++ ziping scheduler-workloadproxy.zip +++++"
       - zip -r ../serverless/lambda/scheduler-workloadproxy.zip  .
-      - echo "++++ pwd is `pwd`"
-      - ls -l .
+      - echo "++++ pwd is `pwd`.  Finding the zip file ???"
+      - find $CODEBUILD_SRC_DIR -name scheduler-workloadproxy.zip -print
 
 
 #    finally:
