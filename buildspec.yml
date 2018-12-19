@@ -65,6 +65,9 @@ phases:
       - cd buildDir
       - echo "+++++ ziping scheduler-workloadproxy.zip +++++"
       - zip -r ../serverless/lambda/scheduler-workloadproxy.zip  .
+      - echo "++++ pwd is `pwd`"
+      - ls -l .
+
 
 #    finally:
 #      - command
