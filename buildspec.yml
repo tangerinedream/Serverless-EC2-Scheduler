@@ -65,10 +65,8 @@ phases:
       - echo "+++++ ziping scheduler-workloadproxy.zip +++++"
       - cd serverless/lambda
       # Good zip reference: https://www.wpoven.com/tutorials/server/how-to-zip-or-unzip-files-and-folders-using-command-line-on-ubuntu-server
+      # zip -r command does not work how you think it does
       - zip -r ../../buildDir/scheduler-workloadproxy.zip .
-#      - zip --recurse-paths ../serverless/lambda/ -output-file ./scheduler-workloadproxy.zip
-      - echo "++++ pwd is `pwd`.  Finding the zip file ???"
-      - find $CODEBUILD_SRC_DIR -name scheduler-workloadproxy.zip -print
 
 
 #    finally:
@@ -76,11 +74,12 @@ phases:
 #      - command
   post_build:
     commands:
+      - cd $CODEBUILD_SRC_DIR/buildDir
       - echo "===== Entered the [post_build] phase ====="
       - echo "+++++ Transforming SAM to CF +++++"
-      - cd buildDir
+      - cd $CODEBUILD_SRC_DIR/buildDir
       - echo "++++ pwd is `pwd`"
-      - ls -lR
+      - ls -l
       - aws cloudformation package --template-file SAM.cf.yaml --s3-bucket us-west-2-309887469609 --output-template-file packagedSAM.yaml
 
 
