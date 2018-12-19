@@ -1,0 +1,20 @@
+Transform: 'AWS::Serverless-2016-10-31'
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 'Sam template for Workload Lambda'
+Resources:
+  WorkloadProxy:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: scheduler-workloadProxy
+      Runtime: python3.6
+      Handler: WorkloadProxy.lambda_handler
+      AutoPublishAlias: DEV
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/SchedulerLambdaRole
+      CodeUri: ./scheduler-workloadproxy.zip
+      Environment:
+        Variables:
+          DYNAMODB_REGION: us-west-2
+          LOG_LEVEL: logging.info
+          SNS_TOPIC: SchedulerTesting
+      DeploymentPreference:
+        Type: AllAtOnce

@@ -14,63 +14,71 @@ phases:
   install:
 #    run-as: Linux-user-name
     commands:
-      - echo Entered the [install] phase...
+      - echo " ===== Entered the [install] phase ====="
       # install dependencies for scheduler
-      # install pip installer
-      - echo apt-get updating
+      - echo "+++++ apt-get updating ++++++"
       - sudo apt-get update -y
 
-      - echo installing python3-pip
+      - echo "+++++ installing python3-pip ++++++"
       - sudo apt-get install -y python3-pip
 
-      - echo installing zip
+      - echo "+++++ installing zip ++++++"
       - sudo apt-get install -y zip
+
 #    finally:
 #      - command
 #      - command
   pre_build:
 #    run-as: Linux-user-name
     commands:
-      - echo Entered the [pre_build] phase...
+      - echo " ===== Entered the [pre_build] phase ====="
       - echo "Code source build directory is $CODEBUILD_SRC_DIR"
       - ls -lR $CODEBUILD_SRC_DIR
 
-      - echo creating build directory buildDir
+      - echo "+++++ Creating build directory buildDir +++++"
       - mkdir buildDir
 
-      - echo Copying python files to build directory
-      - mv serverless/lambda/*.py buildDir
+
+      - echo "+++++ Installing yaml module +++++"
+      - sudo pip3 install pyyaml -t buildDir
+
+      - echo "+++++ Installing retry module in buildDir +++++"
+      - sudo pip3 install retry -t buildDir
+
+      - echo "+++++ Staging source python files to build directory +++++"
+      - cp serverless/lambda/*.py buildDir
 
 #      - echo Copying appspec.yml files to build directory
 #      - mv appspec.yaml buildDir
 
-      # install retry module
-      - echo installing retry module in buildDir
-      - sudo pip3 install retry -t buildDir
+
 #    finally:
 #      - command
 #      - command
   build:
 #    run-as: Linux-user-name
     commands:
-      - echo Entered the [build] phase...
+      - echo "===== Entered the [build] phase ====="
       - cd buildDir
+      - echo "+++++ ziping scheduler-workloadproxy.zip +++++"
       - zip -r ../serverless/lambda/scheduler-workloadproxy.zip  .
-#      - command
+
 #    finally:
 #      - command
 #      - command
   post_build:
     commands:
-      - echo Entered the [post_build] phase...
-#    finally:
-#      - command
-#      - command
+      - echo "===== Entered the [post_build] phase ====="
+      - echo "+++++ Transforming SAM to CF +++++"
+      - aws --debug cloudformation package --template-file SAM.cf.yaml --s3-bucket us-west-2-309887469609 --output-template-file packagedSAM.yaml
+      - echo "+++++ Deploying Scheduler-Workload-Stack +++++"
+      - aws --debug cloudformation deploy --template-file packagedSAM.yaml --stack-name Scheduler-Workload-Stack --capabilities CAPABILITY_IAM
 artifacts:
   files:
+    - packagedSAM.yaml
 #     - '**/*'
-    - serverless/lambda/scheduler-workloadproxy.zip
-    - appspec.yaml
+#    - serverless/lambda/scheduler-workloadproxy.zip
+#    - appspec.yaml
   discard-paths: yes
 #  base-directory: buildDir
 #  secondary-artifacts:
