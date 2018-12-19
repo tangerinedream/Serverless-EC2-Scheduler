@@ -10,7 +10,7 @@ Resources:
       Handler: WorkloadProxy.lambda_handler
       AutoPublishAlias: DEV
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/SchedulerLambdaRole
-      CodeUri: ./scheduler-workloadproxy.zip
+      CodeUri: buildDir/scheduler-workloadproxy.zip
       Environment:
         Variables:
           DYNAMODB_REGION: us-west-2
