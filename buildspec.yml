@@ -48,6 +48,9 @@ phases:
       - echo "+++++ Staging source python files to build directory +++++"
       - cp serverless/lambda/*.py buildDir
 
+      - echo "+++++ Staging SAM.cf.yaml to build directory +++++"
+      - cp SAM.cf.yaml buildDir
+
 #      - echo Copying appspec.yml files to build directory
 #      - mv appspec.yaml buildDir
 
