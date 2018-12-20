@@ -1,0 +1,42 @@
+Naming Conventions
+To the extend possible, these should be:
+- compatible with S3 & R53
+- generated from CF with the following parameters:
++ pipelineShortName
++ builderShortName
++ lambdaShortName
+
+
+Pipeline
+  pipelineNameShort-account-region-stage
+  example
+    scheduler-pipeline-master-USE1-DEV
+
+CodeBuild / Build Project
+  builderNameShort-account-region-stage
+  example
+    scheduler-builder-master-USW2-PROD
+
+Lambda
+  lambdaShortName-account-region-stage
+  example
+    scheduler-workload-proxy-master-USW2-QA
+
+S3
+  CodePipeline
+  1 pipelineNameShort-account-region-stage
+    example
+      scheduler-pipeline-master-USW2-DEV
+  2 codepipeline-region-number
+    example
+      auto generated
+
+CloudFormation
+  stackShortName-account-region-env
+  example (in Build Step, cf deploy cmd)
+    scheduler-workload-master-USW2-DEV-stack
+
+CodeDeploy
+  stackShortName-account-region-env
+  example (in Build Step, cf deploy cmd)
+    scheduler-workload-master-USW2-DEV-stack
