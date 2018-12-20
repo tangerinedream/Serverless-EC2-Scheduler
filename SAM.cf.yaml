@@ -5,7 +5,7 @@ Resources:
   WorkloadProxy:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: scheduler-workloadProxy
+      FunctionName: scheduler-workloadProxyNEW
       Runtime: python3.6
       Handler: WorkloadProxy.lambda_handler
       AutoPublishAlias: DEV
