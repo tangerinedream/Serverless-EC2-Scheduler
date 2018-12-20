@@ -84,13 +84,13 @@ phases:
 #      - cp SAM.cf.yaml buildDir
       - echo "+++++ Deploying Scheduler-Workload-Stack +++++"
       - aws --debug cloudformation deploy --template-file packagedSAM.yaml --stack-name Scheduler-Workload-Stack --capabilities CAPABILITY_IAM
-artifacts:
-  files:
-    - packagedSAM.yaml
+#artifacts:
+#  files:
+#    - buildDir/packagedSAM.yaml
 #     - '**/*'
 #    - serverless/lambda/scheduler-workloadproxy.zip
 #    - appspec.yaml
-  discard-paths: yes
+#  discard-paths: yes
 #  base-directory: buildDir
 #  secondary-artifacts:
 #    artifactIdentifier:
