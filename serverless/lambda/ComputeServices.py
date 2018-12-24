@@ -4,6 +4,7 @@ import json
 from botocore.exceptions import ClientError
 
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
+#from retrying import retry  # See  https://pypi.org/project/retrying/ seems unable to natively wrap api calls
 
 # CloudWatch Logs
 #import watchtower

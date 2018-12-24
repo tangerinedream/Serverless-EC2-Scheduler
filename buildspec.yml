@@ -42,8 +42,12 @@ phases:
       - echo "+++++ Installing yaml module +++++"
       - sudo pip3 install pyyaml -t buildDir
 
-      - echo "+++++ Installing retry module in buildDir +++++"
-      - sudo pip3 install retry -t buildDir
+      - echo "+++++ Installing redo module in buildDir +++++"
+      - sudo pip3 install redo -t buildDir
+
+#      seems unable to retry api calls natively
+#      - echo "+++++ Installing retry module in buildDir +++++"
+#      - sudo pip3 install retry -t buildDir
 
       - echo "+++++ Staging source python files to build directory +++++"
       - cp serverless/lambda/*.py buildDir
