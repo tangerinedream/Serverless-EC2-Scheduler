@@ -65,12 +65,18 @@ phases:
   build:
 #    run-as: Linux-user-name
     commands:
+#      - echo "===== Entered the [build] phase ====="
+#      - echo "+++++ ziping scheduler-workloadproxy.zip +++++"
+#      - cd serverless/lambda
+#      # Good zip reference: https://www.wpoven.com/tutorials/server/how-to-zip-or-unzip-files-and-folders-using-command-line-on-ubuntu-server
+#      # zip -r command does not work how you think it does
+#      - zip -r ../../buildDir/scheduler-workloadproxy.zip .
+
       - echo "===== Entered the [build] phase ====="
-      - echo "+++++ ziping scheduler-workloadproxy.zip +++++"
-      - cd serverless/lambda
-      # Good zip reference: https://www.wpoven.com/tutorials/server/how-to-zip-or-unzip-files-and-folders-using-command-line-on-ubuntu-server
-      # zip -r command does not work how you think it does
-      - zip -r ../../buildDir/scheduler-workloadproxy.zip .
+      - echo "+++++ creating zip file scheduler-workloadproxy.zip +++++"
+      - cd $CODEBUILD_SRC_DIR/buildDir
+      - zip -r ./scheduler-workloadproxy.zip .  # zipping may not even be necessary, just point SAM.cf.yaml codeUri to buildDir
+      
 
 
 #    finally:
