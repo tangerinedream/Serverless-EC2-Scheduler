@@ -159,6 +159,7 @@ def lambda_handler(event, context):
 
   # return workload details
   resultResponseDict[RESULT_BODY]=json.dumps(resultResponseDict[RESULT_BODY], indent=2);
+  logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
   return (resultResponseDict);
 
 if __name__ == "__main__":
