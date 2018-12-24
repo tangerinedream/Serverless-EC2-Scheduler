@@ -24,3 +24,15 @@ Resources:
           Properties:
             Path: /workloads/{workload+}
             Method: any
+Outputs:
+  WorkloadProxyAPI:
+    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/workloads/{workload+}"
+
+  HelloWorldFunction:
+    Description: "WorkloadProxy Lambda Function ARN"
+    Value: !GetAtt WorkloadProxy.Arn
+
+  HelloWorldFunctionIamRole:
+    Description: "Implicit IAM Role created for WorkloadProxy function"
+    Value: !GetAtt WorkloadProxy.Arn
