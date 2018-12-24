@@ -143,6 +143,7 @@ def lambda_handler(event, context):
   requestParamsDict = preprocessRequest(event, resultResponseDict)
 
   if(resultResponseDict[RESULT_STATUS_CODE] == RESULT_CODE_BAD_REQUEST):
+    resultResponseDict[RESULT_BODY] = json.dumps(resultResponseDict[RESULT_BODY], indent=2); #Body must be a String
     return(resultResponseDict);
 
   dryRunFlag = requestParamsDict[REQUEST_PARAM_DRYRUN]
