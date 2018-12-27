@@ -258,7 +258,7 @@ class ComputeServices(object):
         for curr in targetInstanceColl:
           self.logger.debug('lookupInstancesByFilter(): Found the following matching targets %s' % curr)
     except Exception as e:
-      msg = 'lookupInstancesByFilter() Exception encountered during instance filtering %s -->' % e
+      msg = 'lookupInstancesByFilter() Exception encountered during instance filtering '
       self.logger.error(msg + str(e))
       raise e
 
