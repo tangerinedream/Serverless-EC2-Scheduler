@@ -17,6 +17,9 @@ CodeBuild / Build Project
   example
     scheduler-builder-master-USW2-PROD
 
+APIG
+  The name of the gateway is opaque in SAM, CF stack is used to create and group lambdas
+
 Lambda
   lambdaShortName-account-region-stage
   example
@@ -32,7 +35,7 @@ S3
       auto generated
 
 CloudFormation
-  stackShortName-account-region-env
+  stackShortName-account-region-env-stack
   example (in Build Step, cf deploy cmd)
     scheduler-workload-master-USW2-DEV-stack
 
@@ -40,3 +43,10 @@ CodeDeploy
   stackShortName-account-region-env
   example (in Build Step, cf deploy cmd)
     scheduler-workload-master-USW2-DEV-stack
+
+Cognito
+  AppShortName-account-env
+  example
+    ServerlessEC2Scheduler-master-DEV
+    (this is the role Cognito generates)
+    ServerlessEC2Scheduler-Master-DEV-SMS-Role

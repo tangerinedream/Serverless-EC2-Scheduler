@@ -14,7 +14,7 @@ Resources:
       Environment:
         Variables:
           DYNAMODB_REGION: us-west-2
-          LOG_LEVEL: logging.info
+          LOG_LEVEL: logging.debug
           SNS_TOPIC: SchedulerTesting
       DeploymentPreference:
         Type: AllAtOnce
