@@ -167,22 +167,22 @@ if __name__ == "__main__":
   # /workloads/workload/BotoTestCase1?action=stop
   TestEvent = {
     "resource": "/workloads/{workload+}",
-    "path": "/workloads/BotoTestCase1",
+    "path": "/workloads/SampleWorkload-01",
     "httpMethod": "GET",
-    "headers": null,
-    "multiValueHeaders": null,
+    "headers": {},
+    "multiValueHeaders": {},
     "queryStringParameters": {
-        "action": "stop"
+        "action": "Stop"
     },
     "multiValueQueryStringParameters": {
         "action": [
-            "stop"
+            "Stop"
         ]
     },
     "pathParameters": {
-        "workload": "BotoTestCase1"
+        "workload": "SampleWorkload-01"
     },
-    "stageVariables": null,
+    "stageVariables": {},
     "requestContext": {
         "path": "/workloads/{workload+}",
         "accountId": "123456789012",
@@ -191,10 +191,10 @@ if __name__ == "__main__":
         "domainPrefix": "testPrefix",
         "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
         "identity": {
-            "cognitoIdentityPoolId": null,
-            "cognitoIdentityId": null,
+            "cognitoIdentityPoolId": {},
+            "cognitoIdentityId": {},
             "apiKey": "test-invoke-api-key",
-            "cognitoAuthenticationType": null,
+            "cognitoAuthenticationType": {},
             "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
             "apiKeyId": "test-invoke-api-key-id",
             "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
@@ -202,7 +202,7 @@ if __name__ == "__main__":
             "caller": "AIDAI3j42k4pfj2o2foij",
             "sourceIp": "test-invoke-source-ip",
             "accessKey": "ASIA3JFWLEFJOJVSOE3",
-            "cognitoAuthenticationProvider": null,
+            "cognitoAuthenticationProvider": {},
             "user": "AIDAIJLJ4902JFJFS0J20"
         },
         "domainName": "testPrefix.testDomainName",
@@ -211,8 +211,8 @@ if __name__ == "__main__":
         "extendedRequestId": "QimohGPmPHcFarw=",
         "apiId": "dcamjxzqsh"
     },
-    "body": null,
-    "isBase64Encoded": false
+    "body": {},
+    "isBase64Encoded": False
 }
 
   lambda_handler(TestEvent,{})

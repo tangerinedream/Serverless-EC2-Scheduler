@@ -88,7 +88,6 @@ class ComputeServices(object):
 
       # For each tier, get the Instance State of each instance
       tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
-      self.logger.info('tierInstancesByInstanceStateDict is {}'.format(json.dumps(tierInstancesByInstanceStateDict)))
 
       # Grab the Running List within the Map
       running = self.BOTO3_INSTANCE_STATE_MAP[16]
@@ -256,7 +255,8 @@ class ComputeServices(object):
     # Filter the instances
     targetInstanceColl = {}
     try:
-      targetInstanceColl = sorted(self.ec2Resource.instances.filter(Filters=targetFilter))
+      targetInstanceColl = self.ec2Resource.instances.filter(Filters=targetFilter)
+#      targetInstanceColl = sorted(self.ec2Resource.instances.filter(Filters=targetFilter))
       self.logger.info('lookupInstancesByFilter(): # of instances found for tier %s in state %s is %i' % (
         tierName, targetInstanceStateString, len(list(targetInstanceColl))))
       if (self.logger.getEffectiveLevel() == logging.DEBUG):
