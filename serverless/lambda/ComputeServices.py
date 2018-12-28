@@ -88,7 +88,7 @@ class ComputeServices(object):
 
       # For each tier, get the Instance State of each instance
       tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
-      self.logger.debug('tierInstancesByInstanceStateDict is %s'.format(json.dumps(tierInstancesByInstanceStateDict)))
+      self.logger.debug('tierInstancesByInstanceStateDict is {}'.format(json.dumps(tierInstancesByInstanceStateDict)))
 
       # Grab the Running List within the Map
       running = self.BOTO3_INSTANCE_STATE_MAP[16]
