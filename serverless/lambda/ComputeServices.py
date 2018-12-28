@@ -128,6 +128,7 @@ class ComputeServices(object):
       stoppedInstancesList = self.lookupInstancesByFilter(workloadSpecDict, tierName, stopped)
       tierInstancesByStatesDict[stopped] =  stoppedInstancesList
     except Exception as e:
+      self.logger.error('getTierInstancesByInstanceState() for stopped had exception of {}'.format(e))
       self.snsServices.sendSns("getTierInstancesByInstanceState() has encountered an exception", str(e))
 
     # Find the running instances of this tier
@@ -136,6 +137,7 @@ class ComputeServices(object):
       runningInstancesList = self.lookupInstancesByFilter(workloadSpecDict, tierName, running)
       tierInstancesByStatesDict[running] =  runningInstancesList
     except Exception as e:
+      self.logger.error('getTierInstancesByInstanceState() for running had exception of {}'.format(e))
       self.snsServices.sendSns("getTierInstancesByInstanceState() has encountered an exception", str(e))
 
     return(tierInstancesByStatesDict);
