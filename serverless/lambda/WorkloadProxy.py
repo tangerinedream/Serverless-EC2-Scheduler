@@ -80,7 +80,7 @@ def makeLogger():
 
 def directiveListAllWorkloads(directiveRequest, resultResponseDict):
   try:
-    resultResponseDict[RESULT_BODY] = json.dumps(dataServices.lookupWorkloads(), indent=2);
+    resultResponseDict[RESULT_BODY] = dataServices.lookupWorkloads();
   except Exception as e:
     logger.error('Exception on directiveListAllWorkloads() call of: {}'.format(e))
     resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
