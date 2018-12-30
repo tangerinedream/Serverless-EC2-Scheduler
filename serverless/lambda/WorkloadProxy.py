@@ -79,7 +79,7 @@ def preprocessRequest(event, resultResponseDict):
 
   # If no workload specified in REQUEST_EVENT_PATHPARAMETER_KEY, return all workload specs as a list
   if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and (event[REQUEST_EVENT_PATHPARAMETER_KEY]) is None ):
-    logging.error('No workload identified in {}.  Returning list of all workload specs'.format(REQUEST_EVENT_PATHPARAMETER_KEY))
+    logging.info('No workload identified in {}.  Returning list of all workload specs'.format(REQUEST_EVENT_PATHPARAMETER_KEY))
     resultResponseDict[RESULT_STATUS_CODE] = RESULT_LIST_ALL_WORKLOADS_REQUEST
     return(mergedParamsDict)
 
@@ -150,8 +150,8 @@ def lambda_handler(event, context):
 
   requestParamsDict = preprocessRequest(event, resultResponseDict)
 
-  if (resultResponseDict[RESULT_STATUS_CODE] == RESULT_CODE_BAD_REQUEST):
-    resultResponseDict[RESULT_BODY] = json.dumps(dataService.lookupWorkloads(), indent=2);
+  if (resultResponseDict[RESULT_STATUS_CODE] == RESULT_LIST_ALL_WORKLOADS_REQUEST):
+    resultResponseDict[RESULT_BODY] = json.dumps(dataServices.lookupWorkloads(), indent=2);
     resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
     return(resultResponseDict)
 
