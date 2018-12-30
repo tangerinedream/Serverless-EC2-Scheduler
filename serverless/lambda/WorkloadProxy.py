@@ -30,6 +30,14 @@ REQUEST_EVENT_WORKLOAD_KEY = 'workload'
 REQUEST_EVENT_PATHPARAMETER_KEY = 'pathParameters'
 REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY = 'queryStringParameters'
 
+# What is the request trying to do ?
+REQUEST_DIRECTIVE = 'directive'
+REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS = 'listAllWorkloads'
+REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC = 'listWorkload'
+REQUEST_DIRECTIVE_ACTION_STOP = 'stopAction'
+REQUEST_DIRECTIVE_ACTION_START = 'startAction'
+REQUEST_DIRECTIVE_UNKNOWN = 'directiveUnknown'
+
 
 # setup logging service
 logLevelStr = os.environ['LOG_LEVEL']
@@ -48,6 +56,7 @@ notificationService = NotificationServices(logLevelStr);
 
 # Instantiation of Compute Services
 computeService = ComputeServices(logLevelStr);
+
 
 def makeLogger():
   logger = logging.getLogger(__name__)
@@ -69,69 +78,123 @@ def makeLogger():
   logger.setLevel(logLevel);
   return(logger);
 
-
-def preprocessRequest(event, resultResponseDict):
-  # return a merged dictionary of http request params (path and query string parameters)
-  mergedParamsDict = {}
-
-  # Informational logging
-  logger.info("Received event: " + json.dumps(event, indent=2));
-
-  # If no workload specified in REQUEST_EVENT_PATHPARAMETER_KEY, return all workload specs as a list
-  if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and (event[REQUEST_EVENT_PATHPARAMETER_KEY]) is None ):
-    logging.info('No workload identified in {}.  Returning list of all workload specs'.format(REQUEST_EVENT_PATHPARAMETER_KEY))
-    resultResponseDict[RESULT_STATUS_CODE] = RESULT_LIST_ALL_WORKLOADS_REQUEST
-    return(mergedParamsDict)
-
-
-  # Extract workload identifier / SpecName from APIG Proxy event type
-  if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and (REQUEST_EVENT_WORKLOAD_KEY in event[REQUEST_EVENT_PATHPARAMETER_KEY]) ):
-    workloadName = event[REQUEST_EVENT_PATHPARAMETER_KEY][REQUEST_EVENT_WORKLOAD_KEY];
-    mergedParamsDict[REQUEST_PARAM_WORKLOAD] = workloadName;
-  else:
-    logging.error('Cant obtain workloadName. Bad event request {}'.format(event))
+def directiveListAllWorkloads(directiveRequest, resultResponseDict):
+  try:
+    resultResponseDict[RESULT_BODY] = json.dumps(dataServices.lookupWorkloads(), indent=2);
+  except Exception as e:
+    logger.error('Exception on directiveListAllWorkloads() call of: {}'.format(e))
     resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
-    return(mergedParamsDict)
+
+  resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
+  return(resultResponseDict)
 
 
-  # Default to no Dry Run
-  mergedParamsDict[REQUEST_PARAM_DRYRUN] = False;
+def directiveListWorkload(directiveRequest, resultResponseDict):
+  workloadName = directiveRequest[REQUEST_PARAM_WORKLOAD];
+  try:
+    workloadSpec = dataServices.lookupWorkloadSpecification(workloadName);
+    resultResponseDict[RESULT_BODY] =  workloadSpec;
+  except Exception as e:
+    logger.error('Exception on directiveListWorkload() for workload name {}, exception is: {}'.format(workloadName, e))
+    resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
 
-  # Get Query String Params
-  if( event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY] != None):
-    if( REQUEST_PARAM_ACTION in event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]):
-      requestAction =  event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY][REQUEST_PARAM_ACTION]
-      mergedParamsDict[REQUEST_PARAM_ACTION] = requestAction;
-    else:
-      logger.error('No Action specified to perform for workload {}'.format(workloadName))
-      resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
-      return(mergedParamsDict)
-
-    if( REQUEST_PARAM_DRYRUN in event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]):
-      # if it exists, set to True, otherwise False
-      #dryRunFlag =  event['queryStringParameters'][REQUEST_PARAM_DRYRUN]
-      mergedParamsDict[REQUEST_PARAM_DRYRUN] = True;
+  resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
+  return(resultResponseDict)
 
 
-  # Lookup workload details to extract region
-  workloadSpec = dataServices.lookupWorkloadSpecification(workloadName);
-  mergedParamsDict[RESULT_WORKLOAD_SPEC]=workloadSpec
+
+
+def directiveActionWorkload(directiveRequest, resultResponseDict):
+  resultResponseDict = directiveListWorkload(directiveRequest, resultResponseDict);
+
+  workloadSpec = resultResponseDict[RESULT_BODY];
+
   if( DataServices.WORKLOAD_REGION not in workloadSpec ):
     logging.error('Workload does not have a {} in DynamoDB'.format(DataServices.WORKLOAD_REGION))
     resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
-    return(mergedParamsDict);
+  else:
+    # Extract Region from Workload
+    region = workloadSpec[DataServices.WORKLOAD_REGION]
 
-  # Extract Region from Workload
-  region = workloadSpec[DataServices.WORKLOAD_REGION]
+    # Initialize common services with per request info
+    workloadName =  directiveRequest[REQUEST_PARAM_WORKLOAD]
+    notificationService.initializeRequestState(topic, workloadName, region);
+    computeService.initializeRequestState(dataServices, notificationService, region);
 
-  # Initialize common services with per request info
-  notificationService.initializeRequestState(topic, workloadName, region);
-  computeService.initializeRequestState(dataServices, notificationService, region);
+    directiveAction = directiveRequest[REQUEST_DIRECTIVE]
 
+    if( directiveAction == REQUEST_DIRECTIVE_ACTION_STOP):
+      try:
+        computeService.actionStopWorkload(workloadName, directiveRequest[REQUEST_PARAM_DRYRUN]);
+      except Exception as e:
+        logger.error(
+          'Exception on directiveActionWorkload() for workload name {}, exception is: {}'.format(workloadName, e))
+        resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
+
+    resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
+    return (resultResponseDict)
+
+def directiveUnknown(directiveRequest, resultResponseDict):
+  logger.error('Unknown directive.  request info {}, result info {}'.format(directiveRequest, resultResponseDict))
+  resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
+  return (resultResponseDict)
+
+def deriveDirective(event, resultResponseDict):
+  # return a merged dictionary of http request params (path and query string parameters)
+  mergedParamsDict = {}
+
+  # Default to no Dry Run
+  mergedParamsDict[REQUEST_PARAM_DRYRUN] = False;
+  if( ((event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]) is not None) and
+      (REQUEST_PARAM_DRYRUN in event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]) ):
+    mergedParamsDict[REQUEST_PARAM_DRYRUN] = True;
+
+  # If no workload specified in REQUEST_EVENT_PATHPARAMETER_KEY, return all workload specs as a list
+  if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and (event[REQUEST_EVENT_PATHPARAMETER_KEY]) is None ):
+    logging.info('Directive is {}. Returning list of all workload specs'.format(REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS));
+    mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS;
+
+  # Path Param of some sort was specified
+  else:
+    # Was it a Workload Identifier specified ?
+    if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and
+        (REQUEST_EVENT_WORKLOAD_KEY in event[REQUEST_EVENT_PATHPARAMETER_KEY]) ):
+
+      # Collect the workload identifier
+      workloadName = event[REQUEST_EVENT_PATHPARAMETER_KEY][REQUEST_EVENT_WORKLOAD_KEY];
+      mergedParamsDict[REQUEST_PARAM_WORKLOAD] = workloadName;
+
+      # Was Query String Param specified ?
+      if (event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY] is not None):
+        # Was Query String Param an Action  ?
+        if (REQUEST_PARAM_ACTION in event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]):
+          requestAction = event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY][REQUEST_PARAM_ACTION]
+          mergedParamsDict[REQUEST_PARAM_ACTION] = requestAction;
+          # Was it a Stop or Start or ?
+          if(requestAction == ACTION_STOP ):
+            mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_ACTION_STOP;
+          elif(requestAction == ACTION_START):
+            mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_ACTION_START
+        else:
+          # Don't know what the Query String is, bad request
+          logger.warning('Invalid request: {} query string not present in request for workload {}'.format(REQUEST_PARAM_ACTION, workloadName))
+          logger.warning('Request contained query string param of: {}'.format(event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]))
+          mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_UNKNOWN
+
+      # No Query String provided.  Return the Workload Spec for the provided Workload Identifier
+      else:
+        mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC
+
+
+    # Path Param specified, but not a Workload Identifier
+    else:
+      logger.warning(
+        'Invalid request: {} not present in {} request'.format(REQUEST_EVENT_WORKLOAD_KEY,
+                                                                               REQUEST_EVENT_PATHPARAMETER_KEY))
+      logging.warning('Cant obtain workloadName. Bad event request {}'.format(event))
+      mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_UNKNOWN
 
   return(mergedParamsDict)
-
-
 
 def lambda_handler(event, context):
   # Setup Lambda-->APIG Response
@@ -142,35 +205,32 @@ def lambda_handler(event, context):
   #   "headers": {"headerName": "headerValue", ...},
   #   "body": "..."
   # }
+  # Informational logging
+  logger.info("Received event: " + json.dumps(event, indent=2));
+
   resultResponseDict = {}
   resultResponseDict[RESULT_BASE_64]=False
   resultResponseDict[RESULT_STATUS_CODE]=RESULT_CODE_OK_REQUEST
   resultResponseDict[RESULT_HEADERS]={'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
   resultResponseDict[RESULT_BODY]={}
 
-  requestParamsDict = preprocessRequest(event, resultResponseDict)
+  directiveSwitchStmt = {
+    REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS: directiveListAllWorkloads,
+    REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC: directiveListWorkload,
+    REQUEST_DIRECTIVE_ACTION_STOP: directiveActionWorkload,
+    REQUEST_DIRECTIVE_ACTION_START: directiveActionWorkload,
+    REQUEST_DIRECTIVE_UNKNOWN: directiveUnknown
+  }
 
-  if (resultResponseDict[RESULT_STATUS_CODE] == RESULT_LIST_ALL_WORKLOADS_REQUEST):
-    resultResponseDict[RESULT_BODY] = json.dumps(dataServices.lookupWorkloads(), indent=2);
-    resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
-    return(resultResponseDict)
+  directiveRequest = deriveDirective(event, resultResponseDict)
 
+  directive = directiveRequest[REQUEST_DIRECTIVE]
 
-  if(resultResponseDict[RESULT_STATUS_CODE] == RESULT_CODE_BAD_REQUEST):
-    resultResponseDict[RESULT_BODY] = json.dumps(resultResponseDict[RESULT_BODY], indent=2); #Body must be a String
-    return(resultResponseDict);
+  # map request to directive function
+  func=directiveSwitchStmt[directive];
 
-  dryRunFlag = requestParamsDict[REQUEST_PARAM_DRYRUN]
-
-  workloadName = requestParamsDict[REQUEST_PARAM_WORKLOAD]
-  if(workloadName):
-    if( REQUEST_PARAM_ACTION in requestParamsDict):
-        action = requestParamsDict[REQUEST_PARAM_ACTION];
-        if( action == ACTION_STOP):
-          computeService.actionStopWorkload(workloadName, dryRunFlag);
-    else: # No Action Specified, just return the spec
-      resultResponseDict[RESULT_BODY]=requestParamsDict[RESULT_WORKLOAD_SPEC];
-
+  # invoke directive function.  Note: resultResponseDict will be updated with results
+  resultResponseDict = func(directiveRequest, resultResponseDict);
 
   # return workload details
   resultResponseDict[RESULT_BODY]=json.dumps(resultResponseDict[RESULT_BODY], indent=2);
@@ -179,7 +239,95 @@ def lambda_handler(event, context):
 
 if __name__ == "__main__":
   # /workloads/workload/BotoTestCase1?action=stop
-  TestEvent = {
+
+  TestListAllWorkloads = {
+    "resource": "/workloads",
+    "path": "/workloads",
+    "httpMethod": "GET",
+    "headers": {},
+    "multiValueHeaders": {},
+    "queryStringParameters": None,
+    "multiValueQueryStringParameters": {
+    },
+    "pathParameters": None,
+    "stageVariables": {},
+    "requestContext": {
+      "path": "/workloads/{workload+}",
+      "accountId": "123456789012",
+      "resourceId": "uzslb4",
+      "stage": "test-invoke-stage",
+      "domainPrefix": "testPrefix",
+      "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
+      "identity": {
+        "cognitoIdentityPoolId": {},
+        "cognitoIdentityId": {},
+        "apiKey": "test-invoke-api-key",
+        "cognitoAuthenticationType": {},
+        "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
+        "apiKeyId": "test-invoke-api-key-id",
+        "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
+        "accountId": "123456789012",
+        "caller": "AIDAI3j42k4pfj2o2foij",
+        "sourceIp": "test-invoke-source-ip",
+        "accessKey": "ASIA3JFWLEFJOJVSOE3",
+        "cognitoAuthenticationProvider": {},
+        "user": "AIDAIJLJ4902JFJFS0J20"
+      },
+      "domainName": "testPrefix.testDomainName",
+      "resourcePath": "/workloads/{workload+}",
+      "httpMethod": "GET",
+      "extendedRequestId": "QimohGPmPHcFarw=",
+      "apiId": "dcamjxzqsh"
+    },
+    "body": {},
+    "isBase64Encoded": False
+  }
+
+  TestListSampleWorkload01 = {
+    "resource": "/workloads/{workload+}",
+    "path": "/workloads/SampleWorkload-01",
+    "httpMethod": "GET",
+    "headers": {},
+    "multiValueHeaders": {},
+    "queryStringParameters": None,
+    "multiValueQueryStringParameters": None,
+    "pathParameters": {
+      "workload": "SampleWorkload-01"
+    },
+    "stageVariables": {},
+    "requestContext": {
+      "path": "/workloads/{workload+}",
+      "accountId": "123456789012",
+      "resourceId": "uzslb4",
+      "stage": "test-invoke-stage",
+      "domainPrefix": "testPrefix",
+      "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
+      "identity": {
+        "cognitoIdentityPoolId": {},
+        "cognitoIdentityId": {},
+        "apiKey": "test-invoke-api-key",
+        "cognitoAuthenticationType": {},
+        "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
+        "apiKeyId": "test-invoke-api-key-id",
+        "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
+        "accountId": "123456789012",
+        "caller": "AIDAI3j42k4pfj2o2foij",
+        "sourceIp": "test-invoke-source-ip",
+        "accessKey": "ASIA3JFWLEFJOJVSOE3",
+        "cognitoAuthenticationProvider": {},
+        "user": "AIDAIJLJ4902JFJFS0J20"
+      },
+      "domainName": "testPrefix.testDomainName",
+      "resourcePath": "/workloads/{workload+}",
+      "httpMethod": "GET",
+      "extendedRequestId": "QimohGPmPHcFarw=",
+      "apiId": "dcamjxzqsh"
+    },
+    "body": {},
+    "isBase64Encoded": False
+  }
+
+  TestStopEvent = {
     "resource": "/workloads/{workload+}",
     "path": "/workloads/SampleWorkload-01",
     "httpMethod": "GET",
@@ -229,5 +377,7 @@ if __name__ == "__main__":
     "isBase64Encoded": False
 }
 
-  lambda_handler(TestEvent,{})
+  # lambda_handler(TestListAllWorkloads,{})
+lambda_handler(TestListSampleWorkload01,{})
+  # lambda_handler(TestStopEvent,{})
 

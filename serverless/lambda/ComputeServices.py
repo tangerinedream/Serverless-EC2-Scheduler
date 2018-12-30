@@ -240,7 +240,7 @@ class ComputeServices(object):
       }
     ]
 
-    self.logger.info('Filter is {}'.format(targetFilter))
+    self.logger.debug('Filter is {}'.format(targetFilter))
 
     # If the Optional VPC ID was provided to further tighten the filter, include it.
     # Only instances within the specified region and VPC within region are returned
