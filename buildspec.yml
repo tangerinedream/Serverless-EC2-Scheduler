@@ -76,7 +76,8 @@ phases:
       - echo "+++++ creating zip file scheduler-workloadproxy.zip +++++"
       - cd $CODEBUILD_SRC_DIR/buildDir
       - zip -r ./scheduler-workloadproxy.zip .  # zipping may not even be necessary, just point SAM.cf.yaml codeUri to buildDir
-      
+      - zip -r ./scheduler-workloads.zip .  # zipping may not even be necessary, just point SAM.cf.yaml codeUri to buildDir
+
 
 
 #    finally:

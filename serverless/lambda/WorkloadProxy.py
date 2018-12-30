@@ -20,6 +20,7 @@ RESULT_BODY = 'body'
 RESULT_CODE_BAD_REQUEST = 400
 RESULT_CODE_OK_REQUEST = 200
 RESULT_WORKLOAD_SPEC = 'workloadSpec'
+RESULT_LIST_ALL_WORKLOADS_REQUEST = 'listAllWorkloads'
 
 REQUEST_PARAM_WORKLOAD = 'workloadName'
 REQUEST_PARAM_DRYRUN = 'dryRun'
@@ -75,6 +76,13 @@ def preprocessRequest(event, resultResponseDict):
 
   # Informational logging
   logger.info("Received event: " + json.dumps(event, indent=2));
+
+  # If no workload specified in REQUEST_EVENT_PATHPARAMETER_KEY, return all workload specs as a list
+  if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and (event[REQUEST_EVENT_PATHPARAMETER_KEY]) is None ):
+    logging.error('No workload identified in {}.  Returning list of all workload specs'.format(REQUEST_EVENT_PATHPARAMETER_KEY))
+    resultResponseDict[RESULT_STATUS_CODE] = RESULT_LIST_ALL_WORKLOADS_REQUEST
+    return(mergedParamsDict)
+
 
   # Extract workload identifier / SpecName from APIG Proxy event type
   if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and (REQUEST_EVENT_WORKLOAD_KEY in event[REQUEST_EVENT_PATHPARAMETER_KEY]) ):
@@ -141,6 +149,12 @@ def lambda_handler(event, context):
   resultResponseDict[RESULT_BODY]={}
 
   requestParamsDict = preprocessRequest(event, resultResponseDict)
+
+  if (resultResponseDict[RESULT_STATUS_CODE] == RESULT_CODE_BAD_REQUEST):
+    resultResponseDict[RESULT_BODY] = json.dumps(dataService.lookupWorkloads(), indent=2);
+    resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
+    return(resultResponseDict)
+
 
   if(resultResponseDict[RESULT_STATUS_CODE] == RESULT_CODE_BAD_REQUEST):
     resultResponseDict[RESULT_BODY] = json.dumps(resultResponseDict[RESULT_BODY], indent=2); #Body must be a String

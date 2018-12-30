@@ -1,7 +1,8 @@
 import json
-import logging
 import os
-from utils.DataServices import DataServices
+
+from LoggingServices import makeLogger
+from DataServices import DataServices
 
 #setup logging service
 logLevelStr = os.environ['LOG_LEVEL']
@@ -25,7 +26,7 @@ def lambda_handler(event, context):
   #   dataService = DataServices(dynamoDBRegion, logLevel);
 
   # Lookup workload details
-  workloads = dataService.lookupWorkloads();
+  workloads = str(dataService.lookupWorkloads());
 
   # return workloads as list of dictionaries
   return (

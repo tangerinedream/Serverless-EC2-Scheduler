@@ -15,7 +15,7 @@ Resources:
         Variables:
           DYNAMODB_REGION: us-west-2
           LOG_LEVEL: logging.debug
-          SNS_TOPIC: SchedulerTesting
+          SNS_TOPIC: SchedulerSNSTopic
       DeploymentPreference:
         Type: AllAtOnce
       Events:
@@ -24,15 +24,51 @@ Resources:
           Properties:
             Path: /workloads/{workload+}
             Method: any
+#  Workloads:
+#    Type: AWS::Serverless::Function
+#    Properties:
+#      FunctionName: scheduler-workloads
+#      Runtime: python3.6
+#      Handler: Workloads.lambda_handler
+#      AutoPublishAlias: DEV
+#      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/SchedulerLambdaRole
+#      CodeUri: scheduler-workloads.zip
+#      Environment:
+#        Variables:
+#          DYNAMODB_REGION: us-west-2
+#          LOG_LEVEL: logging.debug
+#          SNS_TOPIC: SchedulerSNSTopic
+#      DeploymentPreference:
+#        Type: AllAtOnce
+#      Events:
+#        WorkloadProxy:
+#          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+#          Properties:
+#            Path: /workloads
+#            Method: any
 Outputs:
   WorkloadProxyAPI:
     Description: "API Gateway endpoint URL for Prod stage for Hello World function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/workloads/{workload+}"
 
-  HelloWorldFunction:
+  WorkloadProxyFunction:
     Description: "WorkloadProxy Lambda Function ARN"
     Value: !GetAtt WorkloadProxy.Arn
 
-  HelloWorldFunctionIamRole:
+  WorkloadProxyIamRole:
     Description: "Implicit IAM Role created for WorkloadProxy function"
     Value: !GetAtt WorkloadProxy.Arn
+
+#  WorkloadsAPI:
+#    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+#    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/workloads"
+#
+#  WorkloadsFunction:
+#    Description: "WorkloadProxy Lambda Function ARN"
+#    Value: !GetAtt Workloads.Arn
+#
+#  WorkloadsIamRole:
+#    Description: "Implicit IAM Role created for WorkloadProxy function"
+#    Value: !GetAtt Workloads.Arn
+    
+
