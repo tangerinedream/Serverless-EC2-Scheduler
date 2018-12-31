@@ -233,6 +233,7 @@ def lambda_handler(event, context):
 
   # return workload details
   # resultResponseDict[RESULT_BODY]=json.dumps(resultResponseDict[RESULT_BODY], indent=2);
+  resultResponseDict[RESULT_BODY] = (str(resultResponseDict[RESULT_BODY]))   # body needs to be a string, not json
   logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
   return (resultResponseDict);
 
