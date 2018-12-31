@@ -106,7 +106,7 @@ class ComputeServices(object):
 
         try:
           result = retry(currRunningInstance.stop, attempts=5, sleeptime=0, jitter=0);
-          instancesStopped.append(currRunningInstance);
+          instancesStopped.append(currRunningInstance.id);
           self.logger.debug('Succesfully stopped EC2 instance {}'.format(currRunningInstance.id))
           #logger.info('stopInstance() for ' + self.instance.id + ' result is %s' % result)
         except Exception as e:
