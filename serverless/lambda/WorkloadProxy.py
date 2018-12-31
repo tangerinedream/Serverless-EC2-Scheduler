@@ -123,14 +123,19 @@ def directiveActionWorkload(directiveRequest, resultResponseDict):
     directiveAction = directiveRequest[REQUEST_DIRECTIVE]
 
     if( directiveAction == REQUEST_DIRECTIVE_ACTION_STOP):
+      instancesStopped = [];
       try:
-        computeService.actionStopWorkload(workloadName, directiveRequest[REQUEST_PARAM_DRYRUN]);
+        instancesStopped = computeService.actionStopWorkload(workloadName, directiveRequest[REQUEST_PARAM_DRYRUN]);
+
       except Exception as e:
         logger.error(
           'Exception on directiveActionWorkload() for workload name {}, exception is: {}'.format(workloadName, e))
         resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
 
     resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
+    resultResponseDict[RESULT_BODY] = {
+      "instancesStopped" : instancesStopped
+    }
     return (resultResponseDict)
 
 def directiveUnknown(directiveRequest, resultResponseDict):
@@ -397,7 +402,7 @@ if __name__ == "__main__":
 
   ###
   # Executes various test cases
-  lambda_handler(TestListAllWorkloads,{})
+  # lambda_handler(TestListAllWorkloads,{})
   # lambda_handler(TestListSampleWorkload01,{})
-  # lambda_handler(TestStopEvent,{})
+  lambda_handler(TestStopEvent,{})
 

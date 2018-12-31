@@ -82,6 +82,8 @@ class ComputeServices(object):
     # Sequence the Tiers within the workload
     sequencedTiersList = self.getSequencedTierNames(workloadName, ComputeServices.ACTION_STOP);
 
+    instancesStopped = [];
+
     # Iterate over the Sequenced Tiers of the workload to stop the running instances
     for currTierName in sequencedTiersList:
       self.logger.info('Stopping Tier: {}'.format(currTierName));
@@ -103,13 +105,16 @@ class ComputeServices(object):
           continue;
 
         try:
-          result = retry(currRunningInstance.stop, attempts=5, sleeptime=0, jitter=0)
+          result = retry(currRunningInstance.stop, attempts=5, sleeptime=0, jitter=0);
+          instancesStopped.append(currRunningInstance);
           self.logger.debug('Succesfully stopped EC2 instance {}'.format(currRunningInstance.id))
           #logger.info('stopInstance() for ' + self.instance.id + ' result is %s' % result)
         except Exception as e:
           msg = 'ComputeServices.actionStopWorkload() Exception on instance {}, error {}'.format(currRunningInstance, str(e))
           self.logger.warning(msg);
           self.snsServices.sendSns('ComputeServices.actionStopWorkload()', msg);
+
+    return(instancesStopped)
 
 
 
