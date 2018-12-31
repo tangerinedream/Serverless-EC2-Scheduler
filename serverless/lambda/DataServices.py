@@ -40,8 +40,6 @@ class DataServices(object):
 
   def __init__(self, dynamoDBRegion, logLevelStr):
     self.logger = makeLogger(__name__, logLevelStr);
-    # self.logger = logging.getLogger(__name__);
-    # self.logger.setLevel(loglevel);
     # self.logger.addHandler(logging.StreamHandler());
     self.dynamoDBRegion = dynamoDBRegion;
 
@@ -128,8 +126,7 @@ class DataServices(object):
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def lookupWorkloadSpecification(self, workloadIdentifier):
-    workloadSpecificationDict = {}
-
+    workloadSpec = {}
     try:
       # self.dynDBC = self.getDynamoDBConnection();
 
@@ -143,20 +140,18 @@ class DataServices(object):
 
     except ClientError as e:
       self.logger.error('lookupWorkloadSpecification()' + e.response['Error']['Message'])
+      return (workloadSpec);
 
     else:
       # Was the item found in DynamoDB
       if ('Item' in dynamodbItem):
         # Get the dynamoDB Item from the result
-        workloadItem = dynamodbItem['Item']
+        workloadAsDynamoDBItem = dynamodbItem['Item']
 
-        # Strip out the DynamoDB value type dictionary
-        for attrKey, attrValueDynamo in workloadItem.items():
-          attrValue = list(attrValueDynamo.values())[0];  # new for python 3.  Assumes data type is String
-          self.logger.info('Workload Attribute [%s maps to %s]' % (attrKey, attrValue));
-          workloadSpecificationDict[attrKey] = attrValue;
+        workloadSpec = self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem)
 
-    return (workloadSpecificationDict);
+    return( workloadSpec );
+
 
   def lookupWorkloads(self):
     workloadsResultList = []
@@ -172,24 +167,28 @@ class DataServices(object):
 
     except ClientError as e:
       self.logger.error('lookupWorkloads()' + e.response['Error']['Message'])
-
+      return(workloadsResultList)
     else:
       # Get the dynamoDB Item from the result
-      workloadResultsList = dynamodbItems['Items'];
+      workloadResultsListAsDynamoDBItems = dynamodbItems['Items'];
 
       # Strip out the DynamoDB value type dictionary
-      for workload in workloadResultsList:
 
-        currWorkloadDict = {};
+      for workloadAsDynamoDBItem in workloadResultsListAsDynamoDBItems:
 
-        for workloadAttrKey, workloadAttrVal in workload.items():
-          workloadVal = list(workloadAttrVal.values())[0];  # new for python 3
-          currWorkloadDict[workloadAttrKey] = workloadVal;
-          self.logger.info('Workload Attribute [%s maps to %s]' % (workloadAttrKey, workloadVal));
-
-        workloadsResultList.append(currWorkloadDict)
+        workloadsResultList.append( self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem) );
 
     return (workloadsResultList);
+
+  def workloadDynamoDBItemToPythonDict(self, dynamoDBWorkloadItem):
+    workloadAsPythonDict = {};
+
+    for workloadAttrKey, workloadAttrVal in dynamoDBWorkloadItem.items():
+      workloadVal = list( workloadAttrVal.values() )[0];  # new for python 3
+      workloadAsPythonDict[workloadAttrKey] = workloadVal;
+      self.logger.info( 'Workload Attribute [%s maps to %s]' % (workloadAttrKey, workloadVal) );
+
+    return(workloadAsPythonDict);
 
   def recursiveFindKeys(self, sourceDict, resList):
     for k, v in sourceDict.items():

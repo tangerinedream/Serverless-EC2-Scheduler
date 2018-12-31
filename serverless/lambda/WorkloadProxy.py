@@ -42,7 +42,6 @@ REQUEST_DIRECTIVE_UNKNOWN = 'directiveUnknown'
 # setup logging service
 logLevelStr = os.environ['LOG_LEVEL']
 logger = makeLogger(__name__, logLevelStr);
-# logger = makeLogger(__name__, logLevelStr);
 
 # setup services
 dynamoDBRegion = os.environ['DYNAMODB_REGION']
@@ -58,25 +57,25 @@ notificationService = NotificationServices(logLevelStr);
 computeService = ComputeServices(logLevelStr);
 
 
-def makeLogger():
-  logger = logging.getLogger(__name__)
-
-  loggingMap = {
-    'logging.CRITICAL' : 50,
-    'logging.ERROR' : 40,
-    'logging.WARNING' : 30,
-    'logging.INFO': 20,
-    'logging.DEBUG': 10,
-    'logging.NOTSET': 0,
-  }
-  logLevel = loggingMap['logging.INFO'];  # default to INFO
-
-  logLevelStr = os.environ['LOG_LEVEL']
-  if(logLevelStr in loggingMap):
-    logLevel = logginMap[logLevelStr];
-
-  logger.setLevel(logLevel);
-  return(logger);
+# def makeLogger():
+#   logger = logging.getLogger(__name__)
+#
+#   loggingMap = {
+#     'logging.CRITICAL' : 50,
+#     'logging.ERROR' : 40,
+#     'logging.WARNING' : 30,
+#     'logging.INFO': 20,
+#     'logging.DEBUG': 10,
+#     'logging.NOTSET': 0,
+#   }
+#   logLevel = loggingMap['logging.INFO'];  # default to INFO
+#
+#   logLevelStr = os.environ['LOG_LEVEL']
+#   if(logLevelStr in loggingMap):
+#     logLevel = logginMap[logLevelStr];
+#
+#   logger.setLevel(logLevel);
+#   return(logger);
 
 def directiveListAllWorkloads(directiveRequest, resultResponseDict):
   try:
@@ -233,151 +232,171 @@ def lambda_handler(event, context):
   resultResponseDict = func(directiveRequest, resultResponseDict);
 
   # return workload details
-  resultResponseDict[RESULT_BODY]=json.dumps(resultResponseDict[RESULT_BODY], indent=2);
+  # resultResponseDict[RESULT_BODY]=json.dumps(resultResponseDict[RESULT_BODY], indent=2);
   logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
   return (resultResponseDict);
 
-# if __name__ == "__main__":
-#   # /workloads/workload/SampleWorkload-01?action=Stop
-#
-#   TestListAllWorkloads = {
-#     "resource": "/workloads",
-#     "path": "/workloads",
-#     "httpMethod": "GET",
-#     "headers": {},
-#     "multiValueHeaders": {},
-#     "queryStringParameters": None,
-#     "multiValueQueryStringParameters": {
-#     },
-#     "pathParameters": None,
-#     "stageVariables": {},
-#     "requestContext": {
-#       "path": "/workloads/{workload+}",
-#       "accountId": "123456789012",
-#       "resourceId": "uzslb4",
-#       "stage": "test-invoke-stage",
-#       "domainPrefix": "testPrefix",
-#       "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
-#       "identity": {
-#         "cognitoIdentityPoolId": {},
-#         "cognitoIdentityId": {},
-#         "apiKey": "test-invoke-api-key",
-#         "cognitoAuthenticationType": {},
-#         "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
-#         "apiKeyId": "test-invoke-api-key-id",
-#         "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
-#         "accountId": "123456789012",
-#         "caller": "AIDAI3j42k4pfj2o2foij",
-#         "sourceIp": "test-invoke-source-ip",
-#         "accessKey": "ASIA3JFWLEFJOJVSOE3",
-#         "cognitoAuthenticationProvider": {},
-#         "user": "AIDAIJLJ4902JFJFS0J20"
-#       },
-#       "domainName": "testPrefix.testDomainName",
-#       "resourcePath": "/workloads/{workload+}",
-#       "httpMethod": "GET",
-#       "extendedRequestId": "QimohGPmPHcFarw=",
-#       "apiId": "dcamjxzqsh"
-#     },
-#     "body": {},
-#     "isBase64Encoded": False
-#   }
-#
-#   TestListSampleWorkload01 = {
-#     "resource": "/workloads/{workload+}",
-#     "path": "/workloads/SampleWorkload-01",
-#     "httpMethod": "GET",
-#     "headers": {},
-#     "multiValueHeaders": {},
-#     "queryStringParameters": None,
-#     "multiValueQueryStringParameters": None,
-#     "pathParameters": {
-#       "workload": "SampleWorkload-01"
-#     },
-#     "stageVariables": {},
-#     "requestContext": {
-#       "path": "/workloads/{workload+}",
-#       "accountId": "123456789012",
-#       "resourceId": "uzslb4",
-#       "stage": "test-invoke-stage",
-#       "domainPrefix": "testPrefix",
-#       "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
-#       "identity": {
-#         "cognitoIdentityPoolId": {},
-#         "cognitoIdentityId": {},
-#         "apiKey": "test-invoke-api-key",
-#         "cognitoAuthenticationType": {},
-#         "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
-#         "apiKeyId": "test-invoke-api-key-id",
-#         "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
-#         "accountId": "123456789012",
-#         "caller": "AIDAI3j42k4pfj2o2foij",
-#         "sourceIp": "test-invoke-source-ip",
-#         "accessKey": "ASIA3JFWLEFJOJVSOE3",
-#         "cognitoAuthenticationProvider": {},
-#         "user": "AIDAIJLJ4902JFJFS0J20"
-#       },
-#       "domainName": "testPrefix.testDomainName",
-#       "resourcePath": "/workloads/{workload+}",
-#       "httpMethod": "GET",
-#       "extendedRequestId": "QimohGPmPHcFarw=",
-#       "apiId": "dcamjxzqsh"
-#     },
-#     "body": {},
-#     "isBase64Encoded": False
-#   }
-#
-#   TestStopEvent = {
-#     "resource": "/workloads/{workload+}",
-#     "path": "/workloads/SampleWorkload-01",
-#     "httpMethod": "GET",
-#     "headers": {},
-#     "multiValueHeaders": {},
-#     "queryStringParameters": {
-#         "action": "Stop"
-#     },
-#     "multiValueQueryStringParameters": {
-#         "action": [
-#             "Stop"
-#         ]
-#     },
-#     "pathParameters": {
-#         "workload": "SampleWorkload-01"
-#     },
-#     "stageVariables": {},
-#     "requestContext": {
-#         "path": "/workloads/{workload+}",
-#         "accountId": "123456789012",
-#         "resourceId": "uzslb4",
-#         "stage": "test-invoke-stage",
-#         "domainPrefix": "testPrefix",
-#         "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
-#         "identity": {
-#             "cognitoIdentityPoolId": {},
-#             "cognitoIdentityId": {},
-#             "apiKey": "test-invoke-api-key",
-#             "cognitoAuthenticationType": {},
-#             "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
-#             "apiKeyId": "test-invoke-api-key-id",
-#             "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
-#             "accountId": "123456789012",
-#             "caller": "AIDAI3j42k4pfj2o2foij",
-#             "sourceIp": "test-invoke-source-ip",
-#             "accessKey": "ASIA3JFWLEFJOJVSOE3",
-#             "cognitoAuthenticationProvider": {},
-#             "user": "AIDAIJLJ4902JFJFS0J20"
-#         },
-#         "domainName": "testPrefix.testDomainName",
-#         "resourcePath": "/workloads/{workload+}",
-#         "httpMethod": "GET",
-#         "extendedRequestId": "QimohGPmPHcFarw=",
-#         "apiId": "dcamjxzqsh"
-#     },
-#     "body": {},
-#     "isBase64Encoded": False
-# }
+if __name__ == "__main__":
 
-  # lambda_handler(TestListAllWorkloads,{})
+  ###
+  # Example request types
+  #
+  # Return all workload specifications
+  # /workloads
+  #
+  # Return specific workload specification
+  # /workloads/workload/SampleWorkload-01
+  #
+  # Execute Stop Action on specific workload
+  # /workloads/workload/SampleWorkload-01?action=Stop
+  #
+  ###
+
+
+  ###
+  # Test APIG Events
+  TestListAllWorkloads = {
+    "resource": "/workloads",
+    "path": "/workloads",
+    "httpMethod": "GET",
+    "headers": {},
+    "multiValueHeaders": {},
+    "queryStringParameters": None,
+    "multiValueQueryStringParameters": {
+    },
+    "pathParameters": None,
+    "stageVariables": {},
+    "requestContext": {
+      "path": "/workloads/{workload+}",
+      "accountId": "123456789012",
+      "resourceId": "uzslb4",
+      "stage": "test-invoke-stage",
+      "domainPrefix": "testPrefix",
+      "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
+      "identity": {
+        "cognitoIdentityPoolId": {},
+        "cognitoIdentityId": {},
+        "apiKey": "test-invoke-api-key",
+        "cognitoAuthenticationType": {},
+        "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
+        "apiKeyId": "test-invoke-api-key-id",
+        "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
+        "accountId": "123456789012",
+        "caller": "AIDAI3j42k4pfj2o2foij",
+        "sourceIp": "test-invoke-source-ip",
+        "accessKey": "ASIA3JFWLEFJOJVSOE3",
+        "cognitoAuthenticationProvider": {},
+        "user": "AIDAIJLJ4902JFJFS0J20"
+      },
+      "domainName": "testPrefix.testDomainName",
+      "resourcePath": "/workloads/{workload+}",
+      "httpMethod": "GET",
+      "extendedRequestId": "QimohGPmPHcFarw=",
+      "apiId": "dcamjxzqsh"
+    },
+    "body": {},
+    "isBase64Encoded": False
+  }
+
+  TestListSampleWorkload01 = {
+    "resource": "/workloads/{workload+}",
+    "path": "/workloads/SampleWorkload-01",
+    "httpMethod": "GET",
+    "headers": {},
+    "multiValueHeaders": {},
+    "queryStringParameters": None,
+    "multiValueQueryStringParameters": None,
+    "pathParameters": {
+      "workload": "SampleWorkload-01"
+    },
+    "stageVariables": {},
+    "requestContext": {
+      "path": "/workloads/{workload+}",
+      "accountId": "123456789012",
+      "resourceId": "uzslb4",
+      "stage": "test-invoke-stage",
+      "domainPrefix": "testPrefix",
+      "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
+      "identity": {
+        "cognitoIdentityPoolId": {},
+        "cognitoIdentityId": {},
+        "apiKey": "test-invoke-api-key",
+        "cognitoAuthenticationType": {},
+        "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
+        "apiKeyId": "test-invoke-api-key-id",
+        "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
+        "accountId": "123456789012",
+        "caller": "AIDAI3j42k4pfj2o2foij",
+        "sourceIp": "test-invoke-source-ip",
+        "accessKey": "ASIA3JFWLEFJOJVSOE3",
+        "cognitoAuthenticationProvider": {},
+        "user": "AIDAIJLJ4902JFJFS0J20"
+      },
+      "domainName": "testPrefix.testDomainName",
+      "resourcePath": "/workloads/{workload+}",
+      "httpMethod": "GET",
+      "extendedRequestId": "QimohGPmPHcFarw=",
+      "apiId": "dcamjxzqsh"
+    },
+    "body": {},
+    "isBase64Encoded": False
+  }
+
+  TestStopEvent = {
+    "resource": "/workloads/{workload+}",
+    "path": "/workloads/SampleWorkload-01",
+    "httpMethod": "GET",
+    "headers": {},
+    "multiValueHeaders": {},
+    "queryStringParameters": {
+        "action": "Stop"
+    },
+    "multiValueQueryStringParameters": {
+        "action": [
+            "Stop"
+        ]
+    },
+    "pathParameters": {
+        "workload": "SampleWorkload-01"
+    },
+    "stageVariables": {},
+    "requestContext": {
+        "path": "/workloads/{workload+}",
+        "accountId": "123456789012",
+        "resourceId": "uzslb4",
+        "stage": "test-invoke-stage",
+        "domainPrefix": "testPrefix",
+        "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
+        "identity": {
+            "cognitoIdentityPoolId": {},
+            "cognitoIdentityId": {},
+            "apiKey": "test-invoke-api-key",
+            "cognitoAuthenticationType": {},
+            "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
+            "apiKeyId": "test-invoke-api-key-id",
+            "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
+            "accountId": "123456789012",
+            "caller": "AIDAI3j42k4pfj2o2foij",
+            "sourceIp": "test-invoke-source-ip",
+            "accessKey": "ASIA3JFWLEFJOJVSOE3",
+            "cognitoAuthenticationProvider": {},
+            "user": "AIDAIJLJ4902JFJFS0J20"
+        },
+        "domainName": "testPrefix.testDomainName",
+        "resourcePath": "/workloads/{workload+}",
+        "httpMethod": "GET",
+        "extendedRequestId": "QimohGPmPHcFarw=",
+        "apiId": "dcamjxzqsh"
+    },
+    "body": {},
+    "isBase64Encoded": False
+}
+
+  logger.info('Lambda function called __main__() !');
+
+  ###
+  # Executes various test cases
+  lambda_handler(TestListAllWorkloads,{})
   # lambda_handler(TestListSampleWorkload01,{})
   # lambda_handler(TestStopEvent,{})
 
