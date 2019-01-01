@@ -48,7 +48,7 @@ class WorkloadProxyDelegate( object ):
   ###
   def directiveListAllWorkloads( self, requestDict, responseDict ):
     try:
-      responseDict[RESULT_BODY] = self.dataServices.lookupWorkloads();
+      responseDict[WorkloadConstants.RESULT_BODY] = self.dataServices.lookupWorkloads();
     except Exception as e:
       self.logger.error( 'Exception on directiveListAllWorkloads() call of: {}'.format( e ) )
       responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
