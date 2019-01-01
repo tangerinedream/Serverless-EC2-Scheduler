@@ -1,12 +1,12 @@
 import json
-import logging
+#import logging
 import os
 
 from LoggingServices import makeLogger
 from DataServices import DataServices
 from NotificationServices import NotificationServices
 from ComputeServices import ComputeServices
-
+import WorkloadProxyDelegate
 
 ACTION_START='Start'
 ACTION_STOP='Stop'
@@ -51,92 +51,11 @@ dataServices =  DataServices(dynamoDBRegion, logLevelStr);
 
 # Instantiation of Notification Services
 topic = os.environ['SNS_TOPIC']
-notificationService = NotificationServices(logLevelStr);
+notificationServices = NotificationServices(logLevelStr);
 
 # Instantiation of Compute Services
-computeService = ComputeServices(logLevelStr);
+computeServices = ComputeServices(logLevelStr);
 
-
-# def makeLogger():
-#   logger = logging.getLogger(__name__)
-#
-#   loggingMap = {
-#     'logging.CRITICAL' : 50,
-#     'logging.ERROR' : 40,
-#     'logging.WARNING' : 30,
-#     'logging.INFO': 20,
-#     'logging.DEBUG': 10,
-#     'logging.NOTSET': 0,
-#   }
-#   logLevel = loggingMap['logging.INFO'];  # default to INFO
-#
-#   logLevelStr = os.environ['LOG_LEVEL']
-#   if(logLevelStr in loggingMap):
-#     logLevel = logginMap[logLevelStr];
-#
-#   logger.setLevel(logLevel);
-#   return(logger);
-
-def directiveListAllWorkloads(directiveRequest, resultResponseDict):
-  try:
-    resultResponseDict[RESULT_BODY] = dataServices.lookupWorkloads();
-  except Exception as e:
-    logger.error('Exception on directiveListAllWorkloads() call of: {}'.format(e))
-    resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
-
-  resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
-  return(resultResponseDict)
-
-
-def directiveListWorkload(directiveRequest, resultResponseDict):
-  workloadName = directiveRequest[REQUEST_PARAM_WORKLOAD];
-  try:
-    workloadSpec = dataServices.lookupWorkloadSpecification(workloadName);
-    resultResponseDict[RESULT_BODY] =  workloadSpec;
-  except Exception as e:
-    logger.error('Exception on directiveListWorkload() for workload name {}, exception is: {}'.format(workloadName, e))
-    resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
-
-  resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
-  return(resultResponseDict)
-
-
-
-
-def directiveActionWorkload(directiveRequest, resultResponseDict):
-  resultResponseDict = directiveListWorkload(directiveRequest, resultResponseDict);
-
-  workloadSpec = resultResponseDict[RESULT_BODY];
-
-  if( DataServices.WORKLOAD_REGION not in workloadSpec ):
-    logging.error('Workload does not have a {} in DynamoDB'.format(DataServices.WORKLOAD_REGION))
-    resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
-  else:
-    # Extract Region from Workload
-    region = workloadSpec[DataServices.WORKLOAD_REGION]
-
-    # Initialize common services with per request info
-    workloadName =  directiveRequest[REQUEST_PARAM_WORKLOAD]
-    notificationService.initializeRequestState(topic, workloadName, region);
-    computeService.initializeRequestState(dataServices, notificationService, region);
-
-    directiveAction = directiveRequest[REQUEST_DIRECTIVE]
-
-    if( directiveAction == REQUEST_DIRECTIVE_ACTION_STOP):
-      instancesStopped = [];
-      try:
-        instancesStopped = computeService.actionStopWorkload(workloadName, directiveRequest[REQUEST_PARAM_DRYRUN]);
-
-      except Exception as e:
-        logger.error(
-          'Exception on directiveActionWorkload() for workload name {}, exception is: {}'.format(workloadName, e))
-        resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
-
-    resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
-    resultResponseDict[RESULT_BODY] = {
-      "instancesStopped" : instancesStopped
-    }
-    return (resultResponseDict)
 
 def directiveUnknown(directiveRequest, resultResponseDict):
   logger.error('Unknown directive.  request info {}, result info {}'.format(directiveRequest, resultResponseDict))
@@ -155,7 +74,7 @@ def deriveDirective(event, resultResponseDict):
 
   # If no workload specified in REQUEST_EVENT_PATHPARAMETER_KEY, return all workload specs as a list
   if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and (event[REQUEST_EVENT_PATHPARAMETER_KEY]) is None ):
-    logging.info('Directive is {}. Returning list of all workload specs'.format(REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS));
+    logger.info('Directive is {}. Returning list of all workload specs'.format(REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS));
     mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS;
 
   # Path Param of some sort was specified
@@ -195,7 +114,7 @@ def deriveDirective(event, resultResponseDict):
       logger.warning(
         'Invalid request: {} not present in {} request'.format(REQUEST_EVENT_WORKLOAD_KEY,
                                                                                REQUEST_EVENT_PATHPARAMETER_KEY))
-      logging.warning('Cant obtain workloadName. Bad event request {}'.format(event))
+      logger.warning('Cant obtain workloadName. Bad event request {}'.format(event))
       mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_UNKNOWN
 
   return(mergedParamsDict)
@@ -218,16 +137,33 @@ def lambda_handler(event, context):
   resultResponseDict[RESULT_HEADERS]={'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
   resultResponseDict[RESULT_BODY]={}
 
+
+  # Create delegate, who will orchestrate the processing of the directive
+  delegate = WorkloadProxyDelegate.WorkloadProxyDelegate( logLevelStr );
+
+  # Initiatlize delegate for this specific request
+  workloadProxyDelegateInitializeRequestStateParams = {
+    WorkloadProxyDelegate.DYNAMODB_REGION : dynamoDBRegion,
+    WorkloadProxyDelegate.DATA_SERVICES : dataServices,
+    WorkloadProxyDelegate.SNS_TOPIC : topic,
+    WorkloadProxyDelegate.NOTIFICATION_SERVICES : notificationServices,
+    WorkloadProxyDelegate.COMPUTE_SERVICES : computeServices
+  }
+  delegate.initializeRequestState( workloadProxyDelegateInitializeRequestStateParams );
+
+
   directiveSwitchStmt = {
-    REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS: directiveListAllWorkloads,
-    REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC: directiveListWorkload,
-    REQUEST_DIRECTIVE_ACTION_STOP: directiveActionWorkload,
-    REQUEST_DIRECTIVE_ACTION_START: directiveActionWorkload,
+    REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS: delegate.directiveListAllWorkloads,
+    REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC: delegate.directiveListWorkload,
+    REQUEST_DIRECTIVE_ACTION_STOP: delegate.directiveActionWorkload,
+    REQUEST_DIRECTIVE_ACTION_START: delegate.directiveActionWorkload,
     REQUEST_DIRECTIVE_UNKNOWN: directiveUnknown
   }
 
+  # determine what the directive is
   directiveRequest = deriveDirective(event, resultResponseDict)
 
+  # pull out the directive
   directive = directiveRequest[REQUEST_DIRECTIVE]
 
   # map request to directive function
@@ -236,8 +172,7 @@ def lambda_handler(event, context):
   # invoke directive function.  Note: resultResponseDict will be updated with results
   resultResponseDict = func(directiveRequest, resultResponseDict);
 
-  # return workload details
-  # resultResponseDict[RESULT_BODY]=json.dumps(resultResponseDict[RESULT_BODY], indent=2);
+  # return  details
   resultResponseDict[RESULT_BODY] = (str(resultResponseDict[RESULT_BODY]))   # body needs to be a string, not json
   logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
   return (resultResponseDict);
@@ -402,7 +337,7 @@ if __name__ == "__main__":
 
   ###
   # Executes various test cases
-  # lambda_handler(TestListAllWorkloads,{})
+  lambda_handler(TestListAllWorkloads,{})
   # lambda_handler(TestListSampleWorkload01,{})
-  lambda_handler(TestStopEvent,{})
+  # lambda_handler(TestStopEvent,{})
 
