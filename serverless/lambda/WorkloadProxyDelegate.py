@@ -2,8 +2,7 @@ from LoggingServices import makeLogger
 from DataServices import DataServices
 from NotificationServices import NotificationServices
 from ComputeServices import ComputeServices
-from WorkloadProxy import  REQUEST_PARAM_WORKLOAD, REQUEST_DIRECTIVE, REQUEST_DIRECTIVE_ACTION_STOP, \
-  RESULT_CODE_OK_REQUEST, RESULT_CODE_BAD_REQUEST, RESULT_STATUS_CODE, RESULT_BODY
+import WorkloadConstants
 
 SNS_TOPIC = 'topic'
 DYNAMODB_REGION = 'dynamoDBRegion'
@@ -52,56 +51,56 @@ class WorkloadProxyDelegate( object ):
       responseDict[RESULT_BODY] = self.dataServices.lookupWorkloads();
     except Exception as e:
       self.logger.error( 'Exception on directiveListAllWorkloads() call of: {}'.format( e ) )
-      responseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
+      responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
 
-      responseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
+      responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
     return (responseDict)
 
   ###
   def directiveListWorkload( self, requestDict, responseDict ):
-    workloadName = requestDict[REQUEST_PARAM_WORKLOAD];
+    workloadName = requestDict[WorkloadConstants.REQUEST_PARAM_WORKLOAD];
     try:
       workloadSpec = self.dataServices.lookupWorkloadSpecification( workloadName );
-      responseDict[RESULT_BODY] = workloadSpec;
+      responseDict[WorkloadConstants.RESULT_BODY] = workloadSpec;
     except Exception as e:
       self.logger.error(
         'Exception on directiveListWorkload() for workload name {}, exception is: {}'.format( workloadName, e ) )
-      responseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
+      responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
 
-      responseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
+      responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
     return (responseDict)
 
   ###
   def directiveActionWorkload( self, requestDict, responseDict ):
     responseDict = self.directiveListWorkload( requestDict, responseDict );
 
-    workloadSpec = responseDict[RESULT_BODY];
+    workloadSpec = responseDict[WorkloadConstants.RESULT_BODY];
 
     if (DataServices.WORKLOAD_REGION not in workloadSpec):
       self.logging.error( 'Workload does not have a {} in DynamoDB'.format( DataServices.WORKLOAD_REGION ) )
-      responseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
+      responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
     else:
       # Extract Region from Workload
       region = workloadSpec[DataServices.WORKLOAD_REGION]
 
       # Initialize common services with per request info
-      workloadName = requestDict[REQUEST_PARAM_WORKLOAD]
+      workloadName = requestDict[WorkloadConstants.REQUEST_PARAM_WORKLOAD]
       self.notificationServices.initializeRequestState( self.snsTopic, workloadName, region );
       self.computeServices.initializeRequestState( self.dataServices, self.notificationServices, region );
 
-      directiveAction = requestDict[REQUEST_DIRECTIVE]
+      directiveAction = requestDict[WorkloadConstants.REQUEST_DIRECTIVE]
 
-      if (directiveAction == REQUEST_DIRECTIVE_ACTION_STOP):
+      if (directiveAction == WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP):
         instancesStopped = [];
         try:
-          instancesStopped = self.computeServices.actionStopWorkload( workloadName, requestDict[REQUEST_PARAM_DRYRUN] );
+          instancesStopped = self.computeServices.actionStopWorkload( workloadName, requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] );
 
         except Exception as e:
           self.logger.error(
             'Exception on directiveActionWorkload() for workload name {}, exception is: {}'.format( workloadName, e ) )
-          responseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
+          responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
 
-      responseDict[RESULT_STATUS_CODE] = RESULT_CODE_OK_REQUEST
-      responseDict[RESULT_BODY] = { "instancesStopped": instancesStopped }
+      responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
+      responseDict[WorkloadConstants.RESULT_BODY] = { "instancesStopped": instancesStopped }
 
       return (responseDict)

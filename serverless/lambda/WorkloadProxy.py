@@ -2,41 +2,43 @@ import json
 #import logging
 import os
 
+import WorkloadConstants
 from LoggingServices import makeLogger
 from DataServices import DataServices
 from NotificationServices import NotificationServices
 from ComputeServices import ComputeServices
 import WorkloadProxyDelegate
 
-ACTION_START='Start'
-ACTION_STOP='Stop'
-ACTION_SCALE='Scale'
-NO_METHOD_FOUND='NoMethodFound'
 
-RESULT_STATUS_CODE = 'statusCode'
-RESULT_BASE_64 = 'isBase64Encoded'
-RESULT_HEADERS = 'headers'
-RESULT_BODY = 'body'
-RESULT_CODE_BAD_REQUEST = 400
-RESULT_CODE_OK_REQUEST = 200
-RESULT_WORKLOAD_SPEC = 'workloadSpec'
-RESULT_LIST_ALL_WORKLOADS_REQUEST = 'listAllWorkloads'
+# ACTION_START='Start'
+# ACTION_STOP='Stop'
+# ACTION_SCALE='Scale'
+# NO_METHOD_FOUND='NoMethodFound'
 
-REQUEST_PARAM_WORKLOAD = 'workloadName'
-REQUEST_PARAM_DRYRUN = 'dryRun'
-REQUEST_PARAM_ACTION = 'action'
+# RESULT_STATUS_CODE = 'statusCode'
+# RESULT_BASE_64 = 'isBase64Encoded'
+# RESULT_HEADERS = 'headers'
+# RESULT_BODY = 'body'
+# RESULT_CODE_BAD_REQUEST = 400
+# RESULT_CODE_OK_REQUEST = 200
+# RESULT_WORKLOAD_SPEC = 'workloadSpec'
+# RESULT_LIST_ALL_WORKLOADS_REQUEST = 'listAllWorkloads'
 
-REQUEST_EVENT_WORKLOAD_KEY = 'workload'
-REQUEST_EVENT_PATHPARAMETER_KEY = 'pathParameters'
-REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY = 'queryStringParameters'
+# REQUEST_PARAM_WORKLOAD = 'workloadName'
+# REQUEST_PARAM_DRYRUN = 'dryRun'
+# REQUEST_PARAM_ACTION = 'action'
+#
+# REQUEST_EVENT_WORKLOAD_KEY = 'workload'
+# REQUEST_EVENT_PATHPARAMETER_KEY = 'pathParameters'
+# REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY = 'queryStringParameters'
 
-# What is the request trying to do ?
-REQUEST_DIRECTIVE = 'directive'
-REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS = 'listAllWorkloads'
-REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC = 'listWorkload'
-REQUEST_DIRECTIVE_ACTION_STOP = 'stopAction'
-REQUEST_DIRECTIVE_ACTION_START = 'startAction'
-REQUEST_DIRECTIVE_UNKNOWN = 'directiveUnknown'
+# # What is the request trying to do ?
+# REQUEST_DIRECTIVE = 'directive'
+# REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS = 'listAllWorkloads'
+# REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC = 'listWorkload'
+# REQUEST_DIRECTIVE_ACTION_STOP = 'stopAction'
+# REQUEST_DIRECTIVE_ACTION_START = 'startAction'
+# REQUEST_DIRECTIVE_UNKNOWN = 'directiveUnknown'
 
 
 # setup logging service
@@ -67,25 +69,25 @@ def deriveDirective(event, resultResponseDict):
   mergedParamsDict = {}
 
   # Default to no Dry Run
-  mergedParamsDict[REQUEST_PARAM_DRYRUN] = False;
-  if( ((event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]) is not None) and
-      (REQUEST_PARAM_DRYRUN in event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]) ):
-    mergedParamsDict[REQUEST_PARAM_DRYRUN] = True;
+  mergedParamsDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] = False;
+  if( ((event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]) is not None) and
+      (WorkloadConstants.REQUEST_PARAM_DRYRUN in event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]) ):
+    mergedParamsDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] = True;
 
   # If no workload specified in REQUEST_EVENT_PATHPARAMETER_KEY, return all workload specs as a list
-  if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and (event[REQUEST_EVENT_PATHPARAMETER_KEY]) is None ):
-    logger.info('Directive is {}. Returning list of all workload specs'.format(REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS));
-    mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS;
+  if( (WorkloadConstants.REQUEST_EVENT_PATHPARAMETER_KEY in event) and (event[WorkloadConstants.REQUEST_EVENT_PATHPARAMETER_KEY]) is None ):
+    logger.info('Directive is {}. Returning list of all workload specs'.format(WorkloadConstants.REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS));
+    mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS;
 
   # Path Param of some sort was specified
   else:
     # Was it a Workload Identifier specified ?
-    if( (REQUEST_EVENT_PATHPARAMETER_KEY in event) and
-        (REQUEST_EVENT_WORKLOAD_KEY in event[REQUEST_EVENT_PATHPARAMETER_KEY]) ):
+    if( (WorkloadConstants.REQUEST_EVENT_PATHPARAMETER_KEY in event) and
+        (WorkloadConstants.REQUEST_EVENT_WORKLOAD_KEY in event[WorkloadConstants.REQUEST_EVENT_PATHPARAMETER_KEY]) ):
 
       # Collect the workload identifier
-      workloadName = event[REQUEST_EVENT_PATHPARAMETER_KEY][REQUEST_EVENT_WORKLOAD_KEY];
-      mergedParamsDict[REQUEST_PARAM_WORKLOAD] = workloadName;
+      workloadName = event[WorkloadConstants.REQUEST_EVENT_PATHPARAMETER_KEY][WorkloadConstants.REQUEST_EVENT_WORKLOAD_KEY];
+      mergedParamsDict[WorkloadConstants.REQUEST_PARAM_WORKLOAD] = workloadName;
 
       # Was Query String Param specified ?
       if (event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY] is not None):
@@ -132,10 +134,10 @@ def lambda_handler(event, context):
   logger.info("Received event: " + json.dumps(event, indent=2));
 
   resultResponseDict = {}
-  resultResponseDict[RESULT_BASE_64]=False
-  resultResponseDict[RESULT_STATUS_CODE]=RESULT_CODE_OK_REQUEST
-  resultResponseDict[RESULT_HEADERS]={'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
-  resultResponseDict[RESULT_BODY]={}
+  resultResponseDict[WorkloadConstants.RESULT_BASE_64]=False
+  resultResponseDict[WorkloadConstants.RESULT_STATUS_CODE]=WorkloadConstants.RESULT_CODE_OK_REQUEST
+  resultResponseDict[WorkloadConstants.RESULT_HEADERS]={'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+  resultResponseDict[WorkloadConstants.RESULT_BODY]={}
 
 
   # Create delegate, who will orchestrate the processing of the directive
@@ -153,18 +155,18 @@ def lambda_handler(event, context):
 
 
   directiveSwitchStmt = {
-    REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS: delegate.directiveListAllWorkloads,
-    REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC: delegate.directiveListWorkload,
-    REQUEST_DIRECTIVE_ACTION_STOP: delegate.directiveActionWorkload,
-    REQUEST_DIRECTIVE_ACTION_START: delegate.directiveActionWorkload,
-    REQUEST_DIRECTIVE_UNKNOWN: directiveUnknown
+    WorkloadConstants.REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS: delegate.directiveListAllWorkloads,
+    WorkloadConstants.REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC: delegate.directiveListWorkload,
+    WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP: delegate.directiveActionWorkload,
+    WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START: delegate.directiveActionWorkload,
+    WorkloadConstants.REQUEST_DIRECTIVE_UNKNOWN: directiveUnknown
   }
 
   # determine what the directive is
   directiveRequest = deriveDirective(event, resultResponseDict)
 
   # pull out the directive
-  directive = directiveRequest[REQUEST_DIRECTIVE]
+  directive = directiveRequest[WorkloadConstants.REQUEST_DIRECTIVE]
 
   # map request to directive function
   func=directiveSwitchStmt[directive];
@@ -173,7 +175,7 @@ def lambda_handler(event, context):
   resultResponseDict = func(directiveRequest, resultResponseDict);
 
   # return  details
-  resultResponseDict[RESULT_BODY] = (str(resultResponseDict[RESULT_BODY]))   # body needs to be a string, not json
+  resultResponseDict[WorkloadConstants.RESULT_BODY] = (str(resultResponseDict[WorkloadConstants.RESULT_BODY]))   # body needs to be a string, not json
   logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
   return (resultResponseDict);
 
