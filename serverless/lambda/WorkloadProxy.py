@@ -10,37 +10,6 @@ from ComputeServices import ComputeServices
 import WorkloadProxyDelegate
 
 
-# ACTION_START='Start'
-# ACTION_STOP='Stop'
-# ACTION_SCALE='Scale'
-# NO_METHOD_FOUND='NoMethodFound'
-
-# RESULT_STATUS_CODE = 'statusCode'
-# RESULT_BASE_64 = 'isBase64Encoded'
-# RESULT_HEADERS = 'headers'
-# RESULT_BODY = 'body'
-# RESULT_CODE_BAD_REQUEST = 400
-# RESULT_CODE_OK_REQUEST = 200
-# RESULT_WORKLOAD_SPEC = 'workloadSpec'
-# RESULT_LIST_ALL_WORKLOADS_REQUEST = 'listAllWorkloads'
-
-# REQUEST_PARAM_WORKLOAD = 'workloadName'
-# REQUEST_PARAM_DRYRUN = 'dryRun'
-# REQUEST_PARAM_ACTION = 'action'
-#
-# REQUEST_EVENT_WORKLOAD_KEY = 'workload'
-# REQUEST_EVENT_PATHPARAMETER_KEY = 'pathParameters'
-# REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY = 'queryStringParameters'
-
-# # What is the request trying to do ?
-# REQUEST_DIRECTIVE = 'directive'
-# REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS = 'listAllWorkloads'
-# REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC = 'listWorkload'
-# REQUEST_DIRECTIVE_ACTION_STOP = 'stopAction'
-# REQUEST_DIRECTIVE_ACTION_START = 'startAction'
-# REQUEST_DIRECTIVE_UNKNOWN = 'directiveUnknown'
-
-
 # setup logging service
 logLevelStr = os.environ['LOG_LEVEL']
 logger = makeLogger(__name__, logLevelStr);
@@ -92,17 +61,17 @@ def deriveDirective(event, resultResponseDict):
       # Was Query String Param specified ?
       if (event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY] is not None):
         # Was Query String Param an Action  ?
-        if (REQUEST_PARAM_ACTION in event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]):
+        if (WorkloadConstants.REQUEST_PARAM_ACTION in event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]):
           requestAction = event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY][WorkloadConstants.REQUEST_PARAM_ACTION]
           mergedParamsDict[WorkloadConstants.REQUEST_PARAM_ACTION] = requestAction;
           # Was it a Stop or Start or ?
-          if(requestAction == ACTION_STOP ):
+          if(requestAction == WorkloadConstants.ACTION_STOP ):
             mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP;
-          elif(requestAction == ACTION_START):
+          elif(requestAction == WorkloadConstants.ACTION_START):
             mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START
         else:
           # Don't know what the Query String is, bad request
-          logger.warning('Invalid request: {} query string not present in request for workload {}'.format(REQUEST_PARAM_ACTION, workloadName))
+          logger.warning('Invalid request: {} query string not present in request for workload {}'.format(WorkloadConstants.REQUEST_PARAM_ACTION, workloadName))
           logger.warning('Request contained query string param of: {}'.format(event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]))
           mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_UNKNOWN
 
