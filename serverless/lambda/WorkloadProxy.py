@@ -90,34 +90,34 @@ def deriveDirective(event, resultResponseDict):
       mergedParamsDict[WorkloadConstants.REQUEST_PARAM_WORKLOAD] = workloadName;
 
       # Was Query String Param specified ?
-      if (event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY] is not None):
+      if (event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY] is not None):
         # Was Query String Param an Action  ?
-        if (REQUEST_PARAM_ACTION in event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]):
-          requestAction = event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY][REQUEST_PARAM_ACTION]
-          mergedParamsDict[REQUEST_PARAM_ACTION] = requestAction;
+        if (REQUEST_PARAM_ACTION in event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]):
+          requestAction = event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY][WorkloadConstants.REQUEST_PARAM_ACTION]
+          mergedParamsDict[WorkloadConstants.REQUEST_PARAM_ACTION] = requestAction;
           # Was it a Stop or Start or ?
           if(requestAction == ACTION_STOP ):
-            mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_ACTION_STOP;
+            mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP;
           elif(requestAction == ACTION_START):
-            mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_ACTION_START
+            mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START
         else:
           # Don't know what the Query String is, bad request
           logger.warning('Invalid request: {} query string not present in request for workload {}'.format(REQUEST_PARAM_ACTION, workloadName))
-          logger.warning('Request contained query string param of: {}'.format(event[REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]))
-          mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_UNKNOWN
+          logger.warning('Request contained query string param of: {}'.format(event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]))
+          mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_UNKNOWN
 
       # No Query String provided.  Return the Workload Spec for the provided Workload Identifier
       else:
-        mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC
+        mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC
 
 
     # Path Param specified, but not a Workload Identifier
     else:
       logger.warning(
-        'Invalid request: {} not present in {} request'.format(REQUEST_EVENT_WORKLOAD_KEY,
-                                                                               REQUEST_EVENT_PATHPARAMETER_KEY))
+        'Invalid request: {} not present in {} request'.format(WorkloadConstants.REQUEST_EVENT_WORKLOAD_KEY,
+                                                               WorkloadConstants.REQUEST_EVENT_PATHPARAMETER_KEY))
       logger.warning('Cant obtain workloadName. Bad event request {}'.format(event))
-      mergedParamsDict[REQUEST_DIRECTIVE] = REQUEST_DIRECTIVE_UNKNOWN
+      mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_UNKNOWN
 
   return(mergedParamsDict)
 
