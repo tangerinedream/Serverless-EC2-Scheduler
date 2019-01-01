@@ -263,10 +263,11 @@ class ComputeServices(object):
       targetInstanceColl = self.ec2Resource.instances.filter(Filters=targetFilter)
 #      targetInstanceColl = sorted(self.ec2Resource.instances.filter(Filters=targetFilter))
       self.logger.info('lookupInstancesByFilter(): # of instances found for tier %s in state %s is %i' % (
-        tierName, targetInstanceStateString, len(list(targetInstanceColl))))
-      if (self.logger.getEffectiveLevel() == logging.DEBUG):
-        for curr in targetInstanceColl:
-          self.logger.debug('lookupInstancesByFilter(): Found the following matching targets %s' % curr)
+        tierName, targetInstanceStateString, len(list(targetInstanceColl)))
+      )
+      # if (self.logger.getEffectiveLevel() == logging.DEBUG):
+      for curr in targetInstanceColl:
+        self.logger.debug('lookupInstancesByFilter(): Found the following matching targets %s' % curr)
     except Exception as e:
       msg = 'lookupInstancesByFilter() Exception encountered during instance filtering '
       self.logger.error(msg + str(e))
