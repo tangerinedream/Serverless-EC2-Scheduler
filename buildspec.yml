@@ -55,6 +55,9 @@ phases:
       - echo "+++++ Staging SAM.cf.yaml to build directory +++++"
       - cp SAM.cf.yaml buildDir
 
+      - echo "+++++ Contents of build directory +++++"
+      - ls -l buildDir
+
 #      - echo Copying appspec.yml files to build directory
 #      - mv appspec.yaml buildDir
 
