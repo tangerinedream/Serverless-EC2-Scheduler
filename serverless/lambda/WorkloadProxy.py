@@ -146,7 +146,8 @@ def lambda_handler(event, context):
   #   "headers": {"headerName": "headerValue", ...},
   #   "body": "..."
   # }
-  resultResponseDict[WorkloadConstants.RESULT_BODY] = (str(resultResponseDict[WorkloadConstants.RESULT_BODY]))   
+  resultResponseDict[WorkloadConstants.RESULT_BODY] = (json.dumps(resultResponseDict[WorkloadConstants.RESULT_BODY]))
+  #resultResponseDict[WorkloadConstants.RESULT_BODY] = (str(resultResponseDict[WorkloadConstants.RESULT_BODY]))
   logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
   return (resultResponseDict);
 
