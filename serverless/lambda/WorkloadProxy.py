@@ -1,5 +1,4 @@
 import json
-#import logging
 import os
 
 import WorkloadConstants
@@ -91,14 +90,7 @@ def deriveDirective(event, resultResponseDict):
   return(mergedParamsDict)
 
 def lambda_handler(event, context):
-  # Setup Lambda-->APIG Response
-  # This is what is required for Proxy responses
-  # {
-  #   "isBase64Encoded": true | false,
-  #   "statusCode": httpStatusCode,
-  #   "headers": {"headerName": "headerValue", ...},
-  #   "body": "..."
-  # }
+
   # Informational logging
   logger.info("Received event: " + json.dumps(event, indent=2));
 
@@ -112,7 +104,8 @@ def lambda_handler(event, context):
   # Create delegate, who will orchestrate the processing of the directive
   delegate = WorkloadProxyDelegate.WorkloadProxyDelegate( logLevelStr );
 
-  # Initiatlize delegate for this specific request
+  # Initiatlize delegate for this specific request by creating the parameter dictionary to pass it
+  # Create dictionary
   workloadProxyDelegateInitializeRequestStateParams = {
     WorkloadProxyDelegate.DYNAMODB_REGION : dynamoDBRegion,
     WorkloadProxyDelegate.DATA_SERVICES : dataServices,
@@ -120,9 +113,10 @@ def lambda_handler(event, context):
     WorkloadProxyDelegate.NOTIFICATION_SERVICES : notificationServices,
     WorkloadProxyDelegate.COMPUTE_SERVICES : computeServices
   }
+  # Initialize the state
   delegate.initializeRequestState( workloadProxyDelegateInitializeRequestStateParams );
 
-
+  # Switch map. Directive options, mapped to methods to invoke in the delegate.
   directiveSwitchStmt = {
     WorkloadConstants.REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS: delegate.directiveListAllWorkloads,
     WorkloadConstants.REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC: delegate.directiveListWorkload,
@@ -131,20 +125,28 @@ def lambda_handler(event, context):
     WorkloadConstants.REQUEST_DIRECTIVE_UNKNOWN: directiveUnknown
   }
 
-  # determine what the directive is
+  # determine the chosen directive
   directiveRequest = deriveDirective(event, resultResponseDict)
 
   # pull out the directive
   directive = directiveRequest[WorkloadConstants.REQUEST_DIRECTIVE]
 
-  # map request to directive function
+  # map request to directive function.  This is the equivilent of a Python Switch statement.
   func=directiveSwitchStmt[directive];
 
   # invoke directive function.  Note: resultResponseDict will be updated with results
   resultResponseDict = func(directiveRequest, resultResponseDict);
 
-  # return  details
-  resultResponseDict[WorkloadConstants.RESULT_BODY] = (str(resultResponseDict[WorkloadConstants.RESULT_BODY]))   # body needs to be a string, not json
+  # return APIG compatible results
+  # Setup Lambda-->APIG Response
+  # This is what is required for Proxy responses
+  # {
+  #   "isBase64Encoded": true | false,
+  #   "statusCode": httpStatusCode,
+  #   "headers": {"headerName": "headerValue", ...},
+  #   "body": "..."
+  # }
+  resultResponseDict[WorkloadConstants.RESULT_BODY] = (str(resultResponseDict[WorkloadConstants.RESULT_BODY]))   
   logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
   return (resultResponseDict);
 

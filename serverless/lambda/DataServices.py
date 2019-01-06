@@ -1,12 +1,9 @@
-#import logging
 import boto3
 import json
+
 from botocore.exceptions import ClientError
-
 from boto3.dynamodb.conditions import Key, Attr
-
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
-
 from LoggingServices import makeLogger
 
 
@@ -128,8 +125,6 @@ class DataServices(object):
   def lookupWorkloadSpecification(self, workloadIdentifier):
     workloadSpec = {}
     try:
-      # self.dynDBC = self.getDynamoDBConnection();
-
       dynamodbItem = self.dynDBC.get_item(
         TableName=self.WORKLOAD_SPEC_TABLE_NAME,
         Key={
@@ -157,25 +152,21 @@ class DataServices(object):
     workloadsResultList = []
 
     try:
-      # self.dynDBC = self.getDynamoDBConnection();
-
       dynamodbItems = self.dynDBC.scan(
         TableName=self.WORKLOAD_SPEC_TABLE_NAME,
         Select='ALL_ATTRIBUTES',
         ConsistentRead=False,
       )
-
     except ClientError as e:
       self.logger.error('lookupWorkloads()' + e.response['Error']['Message'])
       return(workloadsResultList)
+
     else:
       # Get the dynamoDB Item from the result
       workloadResultsListAsDynamoDBItems = dynamodbItems['Items'];
 
       # Strip out the DynamoDB value type dictionary
-
       for workloadAsDynamoDBItem in workloadResultsListAsDynamoDBItems:
-
         workloadsResultList.append( self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem) );
 
     return (workloadsResultList);

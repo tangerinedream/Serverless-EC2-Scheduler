@@ -1,13 +1,9 @@
-#import logging
 import boto3
 import json
-from botocore.exceptions import ClientError
 
+from botocore.exceptions import ClientError
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
 #from retrying import retry  # See  https://pypi.org/project/retrying/ seems unable to natively wrap api calls
-
-# CloudWatch Logs
-#import watchtower
 
 from NotificationServices import NotificationServices
 from LoggingServices import makeLogger
@@ -97,7 +93,6 @@ class ComputeServices(object):
 
       # Stop each instance in the list
       for currRunningInstance in instancesToStop:
-
         result = 'Instance not Stopped'
 
         if( dryRunFlag ):
@@ -107,8 +102,10 @@ class ComputeServices(object):
         try:
           result = retry(currRunningInstance.stop, attempts=5, sleeptime=0, jitter=0);
           instancesStopped.append(currRunningInstance.id);
+
           self.logger.debug('Succesfully stopped EC2 instance {}'.format(currRunningInstance.id))
           #logger.info('stopInstance() for ' + self.instance.id + ' result is %s' % result)
+
         except Exception as e:
           msg = 'ComputeServices.actionStopWorkload() Exception on instance {}, error {}'.format(currRunningInstance, str(e))
           self.logger.warning(msg);
@@ -124,7 +121,6 @@ class ComputeServices(object):
   def getTierInstancesByInstanceState(self, workloadSpecDict, tierName):
     # Return the running and stopped instances through a dictoionary of Lists (running, stopped)
     tierInstancesByStatesDict = {}
-
 
     # Find the stopped instances of this tier
     try:
@@ -151,21 +147,14 @@ class ComputeServices(object):
     tierSpecsDict = self.dataServices.lookupTierSpecs(workloadName);
 
     # Prefill list for easy insertion
-    #sequencedTierNameList = range(len(tierSpecsDict))
     length = len(tierSpecsDict);
-    #sequencedTierNameList = list(0) * length;
     sequencedTierNameList = list(0 for i in range(length));
-    #l = list(0 for i in range(len(a)))
+
 
     # action indicates whether it is a TIER_STOP, or TIER_START, as they may have different sequences
     # Sequence is ascending
     for tierName, tierAttributes in tierSpecsDict.items():
       self.logger.debug('sequenceTiers() Action={}, currKey={}, currAttributes={})'.format(action, tierName, tierAttributes))
-
-      # Grab the Tier Name of this item first
-      #tierName = currKey
-
-      # tierName = currAttributes[Orchestrator.TIER_NAME]
 
       # This will be used to point to relevant dict within a specific tier's spec dict
       tierActionAttributes = {}
@@ -177,11 +166,8 @@ class ComputeServices(object):
       elif (action == Orchestrator.TIER_START):
         tierActionAttributes = tierAttributes[ComputeServices.TIER_START]
 
-      # logger.info('In sequenceTiers(): tierAttributes is ', tierAttributes )
-
       # Insert into the List
       idx = int(tierActionAttributes[ComputeServices.TIER_SEQ_NBR]);
-      #sequencedTierNameList.insert(int(insertIdx), tierName);
       sequencedTierNameList[idx] = tierName;
 
     self.logger.debug('sequenceTiers() List for Action={} is {}'.format(action, sequencedTierNameList))

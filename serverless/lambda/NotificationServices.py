@@ -1,9 +1,7 @@
-#import logging
 import boto3
 import json
 
 from redo import retriable  # https://github.com/mozilla-releng/redo
-
 from LoggingServices import makeLogger
 
 

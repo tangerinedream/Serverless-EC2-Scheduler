@@ -7,7 +7,6 @@ import WorkloadConstants
 SNS_TOPIC = 'topic'
 DYNAMODB_REGION = 'dynamoDBRegion'
 DATA_SERVICES = 'dataServices'
-SNS_TOPIC = 'topic'
 NOTIFICATION_SERVICES = 'notificationService'
 COMPUTE_SERVICES = 'computeService'
 
