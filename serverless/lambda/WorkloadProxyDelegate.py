@@ -73,7 +73,8 @@ class WorkloadProxyDelegate( object ):
   def directiveActionWorkload( self, requestDict, responseDict ):
     responseDict = self.directiveListWorkload( requestDict, responseDict );
 
-    workloadSpec = responseDict[WorkloadConstants.RESULT_BODY];
+    # There should only be one element in the list returned.
+    workloadSpec = responseDict[WorkloadConstants.RESULT_BODY][DataServices.WORKLOAD_RESULTS_KEY][0];
 
     if (DataServices.WORKLOAD_REGION not in workloadSpec):
       self.logging.error( 'Workload does not have a {} in DynamoDB'.format( DataServices.WORKLOAD_REGION ) )
