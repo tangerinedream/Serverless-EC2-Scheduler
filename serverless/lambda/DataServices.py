@@ -33,6 +33,7 @@ class DataServices(object):
   INTER_TIER_ORCHESTRATION_DELAY_DEFAULT = 5
 
   FLEET_SUBSET = 'FleetSubset'
+  WORKLOAD_RESULTS_KEY = 'Workloads'
 
 
   def __init__(self, dynamoDBRegion, logLevelStr):
@@ -123,6 +124,8 @@ class DataServices(object):
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def lookupWorkloadSpecification(self, workloadIdentifier):
+    jsonWrapper = {}
+    workloadsResultList = []
     workloadSpec = {}
     try:
       dynamodbItem = self.dynDBC.get_item(
@@ -145,10 +148,13 @@ class DataServices(object):
 
         workloadSpec = self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem)
 
-    return( workloadSpec );
+    workloadsResultList.append(workloadSpec)
+    jsonWrapper[DataServices.WORKLOAD_RESULTS_KEY]=workloadsResultList
+    return( jsonWrapper );
 
 
   def lookupWorkloads(self):
+    jsonWrapper = {}
     workloadsResultList = []
 
     try:
@@ -169,7 +175,8 @@ class DataServices(object):
       for workloadAsDynamoDBItem in workloadResultsListAsDynamoDBItems:
         workloadsResultList.append( self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem) );
 
-    return (workloadsResultList);
+    jsonWrapper[DataServices.WORKLOAD_RESULTS_KEY]=workloadsResultList
+    return (jsonWrapper);
 
   def workloadDynamoDBItemToPythonDict(self, dynamoDBWorkloadItem):
     workloadAsPythonDict = {};
