@@ -1,6 +1,7 @@
 import json
 import yaml
 import os
+import datetime
 
 import WorkloadConstants
 from LoggingServices import makeLogger
@@ -92,6 +93,9 @@ def deriveDispatch(event, resultResponseDict):
 
 def lambda_handler(event, context):
 
+  finishTime = 0
+  startTime = datetime.datetime.now().replace( microsecond=0 )
+
   # Informational logging
   logger.info("Received event: " + json.dumps(event, indent=2));
 
@@ -130,11 +134,12 @@ def lambda_handler(event, context):
     WorkloadConstants.REQUEST_DIRECTIVE_UNKNOWN: dispatchUnknown
   }
 
-  # determine the chosen dispatch
+  # determine the requested directive
   dispatchRequest = deriveDispatch(event, resultResponseDict)
 
-  # pull out the dispatch
+  # pull out the dispatch function indicator
   dispatch = dispatchRequest[WorkloadConstants.REQUEST_DIRECTIVE]
+
 
   # map request to dispatch function.  This is the equivilent of a Python Switch statement.
   func=dispatchSwitchStmt[dispatch];
@@ -154,6 +159,20 @@ def lambda_handler(event, context):
   # resultResponseDict[WorkloadConstants.RESULT_BODY] = (json.dumps(resultResponseDict[WorkloadConstants.RESULT_BODY]))
   #logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
   logger.info('YAML version of output is: \n' + yaml.dump(resultResponseDict, indent=2, default_flow_style=False))
+
+
+  # capture completion time
+  finishTime = datetime.datetime.now().replace( microsecond=0 )
+
+  logger.info( '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++' )
+  if( WorkloadConstants.REQUEST_PARAM_WORKLOAD in dispatchRequest ):
+    workloadName = dispatchRequest[WorkloadConstants.REQUEST_PARAM_WORKLOAD]
+    logger.info( '++ Completed processing [' + dispatch + '][' + workloadName + ']<- in ' + str(
+      finishTime - startTime ) + ' seconds' )
+  else:
+    logger.info( '++ Completed processing [' + dispatch + ']<- in ' + str(finishTime - startTime ) + ' seconds' )
+  logger.info( '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++' )
+
   return (resultResponseDict);
 
 if __name__ == "__main__":
@@ -368,6 +387,6 @@ if __name__ == "__main__":
   # Executes various test cases
   # lambda_handler(TestListAllWorkloads,{})
   # lambda_handler(TestListSampleWorkload01,{})
-  lambda_handler(TestStopEvent,{})
-  # lambda_handler(TestStartEvent,{})
+  # lambda_handler(TestStopEvent,{})
+  lambda_handler(TestStartEvent,{})
 
