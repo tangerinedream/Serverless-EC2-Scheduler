@@ -37,32 +37,6 @@ Resources:
           Key : "AWS_EC2_Scheduler"
           Value : "Bucket for SSM Temp Files"
 
-
-  SchedulerSNSTopic:
-    Type: "AWS::SNS::Topic"
-    Properties:
-      DisplayName: Scheduler
-      TopicName: SchedulerSNSTopic
-
-  SchedulerS3Bucket:
-    Type: "AWS::S3::Bucket"
-    Properties:
-      BucketName:
-        Ref: BucketNameParam
-      LifecycleConfiguration:
-        Rules:
-          -
-            ExpirationInDays: 1
-            Status: Enabled
-            TagFilters:
-              -
-                Key : "AWS_EC2_Scheduler"
-                Value : "Lifecycle Rule for Bucket of SSM Temp Files"
-      Tags:
-        -
-          Key : "AWS_EC2_Scheduler"
-          Value : "Bucket for SSM Temp Files"
-
   SchedulerDynamoDBWorkloadTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
@@ -100,6 +74,23 @@ Resources:
       Tags:
         - Key : "AWS_EC2_Scheduler"
           Value : "Tier Definition"
+
+  SchedulerDynamoDBWorkloadStateTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: WorkloadState
+      AttributeDefinitions:
+        - AttributeName: Workload
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Workload
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      Tags:
+        - Key : "AWS_EC2_Scheduler"
+          Value : "Capturing Workload State"
 
   SchedulerIAMPolicy:
     Type: "AWS::IAM::ManagedPolicy"
@@ -166,11 +157,13 @@ Resources:
               "Effect": "Allow",
               "Action": [
                   "dynamodb:GetItem",
+                  "dynamodb:PutItem",
                   "dynamodb:Query"
               ],
               "Resource": [
                 { "Fn::GetAtt" : [ "SchedulerDynamoDBWorkloadTable", "Arn" ] },
-                { "Fn::GetAtt" : [ "SchedulerDynamoDBTierTable", "Arn" ] }
+                { "Fn::GetAtt" : [ "SchedulerDynamoDBTierTable", "Arn" ] },
+                { "Fn::GetAtt" : [ "SchedulerDynamoDBWorkloadStateTable", "Arn" ] }
               ]
           },
           {
@@ -192,3 +185,4 @@ Resources:
           }
         ]
       }
+

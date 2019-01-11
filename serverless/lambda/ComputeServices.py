@@ -5,6 +5,7 @@ from botocore.exceptions import ClientError
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
 #from retrying import retry  # See  https://pypi.org/project/retrying/ seems unable to natively wrap api calls
 
+import WorkloadConstants
 from NotificationServices import NotificationServices
 from LoggingServices import makeLogger
 
@@ -28,6 +29,9 @@ class ComputeServices(object):
   TIER_START = 'TierStart'
   TIER_SCALING = 'TierScaling'
   TIER_SEQ_NBR = 'TierSequence'
+
+  REGISTER_TO_ELB = 'Register'
+  UNREGISTER_FROM_ELB = 'Unregister'
 
 
 
@@ -67,9 +71,62 @@ class ComputeServices(object):
     self.ec2Client =   self.getEC2ClientConnection(workloadRegion);
     self.elbClient =   self.getELBClientConnection(workloadRegion);
 
+    # Get this once per request
+    self.elbsInRegionList = self.getELBListInRegion();
+
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  # Actions
+  # Workload Actions
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  def actionStartWorkload(self, workloadName, dryRunFlag):
+    # Need the workload spec to correctly scope the search for instances
+    workloadSpec = self.dataServices.lookupWorkloadSpecification(workloadName);
+
+    # Sequence the Tiers within the workload
+    sequencedTiersList = self.getSequencedTierNames(workloadName, ComputeServices.ACTION_START);
+
+    instancesStarted = [];
+
+    # Iterate over the Sequenced Tiers of the workload to start the stopped instances
+    for currTierName in sequencedTiersList:
+      self.logger.info('Starting Tier: {}'.format(currTierName));
+
+      # For each tier, get the Instance State of each instance
+      tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
+
+      # Grab the Stopped List within the Map
+      stopped = self.BOTO3_INSTANCE_STATE_MAP[80]
+      instancesToStart =  tierInstancesByInstanceStateDict[stopped]
+      # TODO: Fleet Subset manipulation
+
+      # Start each instance in the list
+      for currStoppedInstance in instancesToStart:
+        result = 'Instance not Running'
+
+        if( dryRunFlag ):
+          self.logger.warning('DryRun Flag is set - instance will not be started')
+          continue;
+
+        # Address reregistration of instance to ELB(s) if appropriate
+        self.reregisterInstanceToELBs(currStoppedInstance);
+
+        # TODO: Scaling
+
+        try:
+          result = retry(currStoppedInstance.start, attempts=5, sleeptime=0, jitter=0);
+          instancesStarted.append(currStoppedInstance.id);
+
+          self.logger.debug('Succesfully started EC2 instance {}'.format(currStoppedInstance.id))
+
+        except Exception as e:
+          msg = 'ComputeServices.actionStartWorkload() Exception on instance {}, error {}'.format(currStoppedInstance, str(e))
+          self.logger.warning(msg);
+          self.snsServices.sendSns('ComputeServices.actionStartWorkload()', msg);
+
+      # TODO: InterTier Orchestration Delay
+
+    return(instancesStarted)
+
 
   def actionStopWorkload(self, workloadName, dryRunFlag):
     # Need the workload spec to correctly scope the search for instances
@@ -163,7 +220,7 @@ class ComputeServices(object):
         # Locate the TIER_STOP Dictionary
         tierActionAttributes = tierAttributes[ComputeServices.TIER_STOP]
 
-      elif (action == Orchestrator.TIER_START):
+      elif (action == ComputeServices.ACTION_START):
         tierActionAttributes = tierAttributes[ComputeServices.TIER_START]
 
       # Insert into the List
@@ -175,46 +232,97 @@ class ComputeServices(object):
     return (sequencedTierNameList)
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  # Lookups
+  # ELB Focused Methods
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  @retriable(attempts=5, sleeptime=0, jitter=0)
+  def reregisterInstanceToELBs( self, instance ):
+
+      memberList = self.getELBMembershipListForInstance(instance);
+
+      if( memberList ):
+        # List has at least one element
+
+        for elbName in memberList:
+
+          self.logger.info('Instance {} is attached to ELB {}, and will be deregistered and re-registered'.format(
+            instance.id,
+            elbName)
+          )
+
+        self.doELBRegistrationAction(ComputeServices.UNREGISTER_FROM_ELB, instance, elbName)
+
+        self.doELBRegistrationAction(ComputeServices.REGISTER_TO_ELB, instance, elbName)
+
+      else:
+        self.logger.debug('Instance {} is not registered behind any ELB.'.format(instance.id))
 
   @retriable(attempts=5, sleeptime=0, jitter=0)
-  def lookupELBs(self):
+  def doELBRegistrationAction( self, action, instance, elbName ):
+    try:
+      if(action == ComputeServices.UNREGISTER_FROM_ELB):
+        self.elb.deregister_instances_from_load_balancer(
+          LoadBalancerName=elb_name,
+          Instances=[{'InstanceId': instance.id}]
+        )
+      else:
+        self.elb.register_instances_with_load_balancer(
+          LoadBalancerName=elb_name,
+          Instances=[{'InstanceId': instance.id}]
+        )
+
+    except Exception as e:
+      logger.warning('ELB action {} encountered an exception of -->'.format(action, str(e) ));
+
+    self.logger.debug('Succesfully addressed {} for instance {} from load balancer {}'.format(action, instance.id, elbName) )
+
+  def getELBMembershipListForInstance( self, instance ):
+    resultList = []
+
+    for i in self.elbsInRegionList['LoadBalancerDescriptions']:
+      for j in i['Instances']:
+        if j['InstanceId'] == instance.id:
+          elbName = i['LoadBalancerName']
+          resultList.append(elbName);
+
+    return(resultList);
+
+  @retriable(attempts=5, sleeptime=0, jitter=0)
+  def getELBListInRegion(self):
     flag = True
     try:
-      elbsInRegion = self.elbClient.describe_load_balancers();
+      elbsInRegionList = self.elbClient.describe_load_balancers();
     except Exception as e:
       msg = 'Exception obtaining ELBs in region %s --> %s' % (workloadRegion, e)
       subject_prefix = "Scheduler Exception in %s" % workloadRegion
       self.logger.error(msg + str(e))
       flag = False
 
+    # Flag is used to ensure retry attempts, which won't happen within except block.
     if (flag == False):
       try:
         self.snsService.sendSns("lookupELBs() has encountered an exception ", str(e));
       except Exception as e:
         self.logger.error('Exception publishing SNS message %s' % str(e))
 
-    return(elbsInRegion)
+    return(elbsInRegionList)
 
+
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # Lookups
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def lookupInstancesByFilter(self, workloadSpecificationDict, tierName, targetInstanceStateString):
     # Use the filter() method of the instances collection to retrieve
     # all running EC2 instances.
+    specDict = workloadSpecificationDict[WorkloadConstants.WORKLOAD_RESULTS_KEY][0]
     self.logger.debug('lookupInstancesByFilter() seeking instances in tier %s' % tierName)
-    self.logger.debug(
-      'lookupInstancesByFilter() instance state %s' % targetInstanceStateString
-    )
-    self.logger.debug(
-      'lookupInstancesByFilter() tier tag key %s' % workloadSpecificationDict[ComputeServices.TIER_FILTER_TAG_KEY]
-    )
+    self.logger.debug('lookupInstancesByFilter() instance state %s' % targetInstanceStateString)
+    self.logger.debug('lookupInstancesByFilter() tier tag key %s' % specDict[ComputeServices.TIER_FILTER_TAG_KEY])
     self.logger.debug('lookupInstancesByFilter() tier tag value %s' % tierName)
-    self.logger.debug('lookupInstancesByFilter() Env tag key %s' % workloadSpecificationDict[
-      ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_KEY]
-                      )
-    self.logger.debug('lookupInstancesByFilter() Env tag value %s' % workloadSpecificationDict[
-      ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_VALUE]
-                      )
+    self.logger.debug('lookupInstancesByFilter() Env tag key %s' % specDict[
+      ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_KEY])
+    self.logger.debug('lookupInstancesByFilter() Env tag value %s' % specDict[
+      ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_VALUE])
 
     targetFilter = [
       {
@@ -222,11 +330,11 @@ class ComputeServices(object):
         'Values': [targetInstanceStateString]
       },
       {
-        'Name': 'tag:' + workloadSpecificationDict[ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_KEY],
-        'Values': [workloadSpecificationDict[ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_VALUE]]
+        'Name': 'tag:' + specDict[ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_KEY],
+        'Values': [specDict[ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_VALUE]]
       },
       {
-        'Name': 'tag:' + workloadSpecificationDict[ComputeServices.TIER_FILTER_TAG_KEY],
+        'Name': 'tag:' + specDict[ComputeServices.TIER_FILTER_TAG_KEY],
         'Values': [tierName]
       }
     ]
@@ -238,7 +346,7 @@ class ComputeServices(object):
     if (ComputeServices.WORKLOAD_VPC_ID_KEY in workloadSpecificationDict):
       vpc_filter_dict_element = {
         'Name': 'vpc-id',
-        'Values': [workloadSpecificationDict[ComputeServices.WORKLOAD_VPC_ID_KEY]]
+        'Values': [specDict[ComputeServices.WORKLOAD_VPC_ID_KEY]]
       }
       targetFilter.append(vpc_filter_dict_element)
       self.logger.debug('VPC_ID provided, Filter List is %s' % str(targetFilter))
@@ -248,21 +356,26 @@ class ComputeServices(object):
     try:
       targetInstanceColl = self.ec2Resource.instances.filter(Filters=targetFilter)
 #      targetInstanceColl = sorted(self.ec2Resource.instances.filter(Filters=targetFilter))
+
       self.logger.info('lookupInstancesByFilter(): # of instances found for tier %s in state %s is %i' % (
-        tierName, targetInstanceStateString, len(list(targetInstanceColl)))
+        tierName,
+        targetInstanceStateString,
+        len(list(targetInstanceColl)))
       )
+
       # if (self.logger.getEffectiveLevel() == logging.DEBUG):
       for curr in targetInstanceColl:
         self.logger.debug('lookupInstancesByFilter(): Found the following matching targets %s' % curr)
+
     except Exception as e:
       msg = 'lookupInstancesByFilter() Exception encountered during instance filtering '
       self.logger.error(msg + str(e))
       raise e
 
-    return targetInstanceColl
+    return(targetInstanceColl)
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  # Connection Factory
+  # Connection Factories
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def makeEC2ResourceConnection(self, workloadRegion):
@@ -334,8 +447,7 @@ if __name__ == "__main__":
   compService.initializeRequestState(notificationService, workloadName, region);
 
   # Test ELBs
-  elbsInRegion = compService.lookupELBs();
-  print('ELBs found in region %s are %s' % (region, json.dumps(elbsInRegion, indent=4)));
+  print('ELBs found in region %s are %s' % (region, json.dumps(compService.elbsInRegionList, indent=4)));
 
   # Test Instances
   workloadDict = {

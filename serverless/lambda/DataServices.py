@@ -4,6 +4,8 @@ import json
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
+
+import WorkloadConstants
 from LoggingServices import makeLogger
 
 
@@ -33,7 +35,7 @@ class DataServices(object):
   INTER_TIER_ORCHESTRATION_DELAY_DEFAULT = 5
 
   FLEET_SUBSET = 'FleetSubset'
-  WORKLOAD_RESULTS_KEY = 'Workloads'
+#  WORKLOAD_RESULTS_KEY = 'Workloads'
 
 
   def __init__(self, dynamoDBRegion, logLevelStr):
@@ -149,7 +151,7 @@ class DataServices(object):
         workloadSpec = self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem)
 
     workloadsResultList.append(workloadSpec)
-    jsonWrapper[DataServices.WORKLOAD_RESULTS_KEY]=workloadsResultList
+    jsonWrapper[WorkloadConstants.WORKLOAD_RESULTS_KEY]=workloadsResultList
     return( jsonWrapper );
 
 
@@ -175,7 +177,7 @@ class DataServices(object):
       for workloadAsDynamoDBItem in workloadResultsListAsDynamoDBItems:
         workloadsResultList.append( self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem) );
 
-    jsonWrapper[DataServices.WORKLOAD_RESULTS_KEY]=workloadsResultList
+    jsonWrapper[WorkloadConstants.WORKLOAD_RESULTS_KEY]=workloadsResultList
     return (jsonWrapper);
 
   def workloadDynamoDBItemToPythonDict(self, dynamoDBWorkloadItem):

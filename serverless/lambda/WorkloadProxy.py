@@ -1,4 +1,5 @@
 import json
+import yaml
 import os
 
 import WorkloadConstants
@@ -27,12 +28,12 @@ notificationServices = NotificationServices(logLevelStr);
 computeServices = ComputeServices(logLevelStr);
 
 
-def directiveUnknown(directiveRequest, resultResponseDict):
-  logger.error('Unknown directive.  request info {}, result info {}'.format(directiveRequest, resultResponseDict))
+def dispatchUnknown(dispatchRequest, resultResponseDict):
+  logger.error('Unknown dispatch.  request info {}, result info {}'.format(dispatchRequest, resultResponseDict))
   resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
   return (resultResponseDict)
 
-def deriveDirective(event, resultResponseDict):
+def deriveDispatch(event, resultResponseDict):
   # return a merged dictionary of http request params (path and query string parameters)
   mergedParamsDict = {}
 
@@ -44,7 +45,7 @@ def deriveDirective(event, resultResponseDict):
 
   # If no workload specified in REQUEST_EVENT_PATHPARAMETER_KEY, return all workload specs as a list
   if( (WorkloadConstants.REQUEST_EVENT_PATHPARAMETER_KEY in event) and (event[WorkloadConstants.REQUEST_EVENT_PATHPARAMETER_KEY]) is None ):
-    logger.info('Directive is {}. Returning list of all workload specs'.format(WorkloadConstants.REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS));
+    logger.info('Dispatch is {}. Returning list of all workload specs'.format(WorkloadConstants.REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS));
     mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS;
 
   # Path Param of some sort was specified
@@ -97,11 +98,15 @@ def lambda_handler(event, context):
   resultResponseDict = {}
   resultResponseDict[WorkloadConstants.RESULT_BASE_64]=False
   resultResponseDict[WorkloadConstants.RESULT_STATUS_CODE]=WorkloadConstants.RESULT_CODE_OK_REQUEST
-  resultResponseDict[WorkloadConstants.RESULT_HEADERS]={'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+  resultResponseDict[WorkloadConstants.RESULT_HEADERS]={
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin':
+    '*'
+  }
   resultResponseDict[WorkloadConstants.RESULT_BODY]={}
 
 
-  # Create delegate, who will orchestrate the processing of the directive
+  # Create delegate, who will orchestrate the processing of the dispatch
   delegate = WorkloadProxyDelegate.WorkloadProxyDelegate( logLevelStr );
 
   # Initiatlize delegate for this specific request by creating the parameter dictionary to pass it
@@ -116,26 +121,26 @@ def lambda_handler(event, context):
   # Initialize the state
   delegate.initializeRequestState( workloadProxyDelegateInitializeRequestStateParams );
 
-  # Switch map. Directive options, mapped to methods to invoke in the delegate.
-  directiveSwitchStmt = {
-    WorkloadConstants.REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS: delegate.directiveListAllWorkloads,
-    WorkloadConstants.REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC: delegate.directiveListWorkload,
-    WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP: delegate.directiveActionWorkload,
-    WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START: delegate.directiveActionWorkload,
-    WorkloadConstants.REQUEST_DIRECTIVE_UNKNOWN: directiveUnknown
+  # Switch map. Dispatch options, mapped to methods to invoke in the delegate.
+  dispatchSwitchStmt = {
+    WorkloadConstants.REQUEST_DIRECTIVE_LIST_ALL_WORKLOADS_SPECS: delegate.listAllWorkloads,
+    WorkloadConstants.REQUEST_DIRECTIVE_LIST_WORKLOAD_SPEC: delegate.listWorkload,
+    WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP: delegate.actionWorkload,
+    WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START: delegate.actionWorkload,
+    WorkloadConstants.REQUEST_DIRECTIVE_UNKNOWN: dispatchUnknown
   }
 
-  # determine the chosen directive
-  directiveRequest = deriveDirective(event, resultResponseDict)
+  # determine the chosen dispatch
+  dispatchRequest = deriveDispatch(event, resultResponseDict)
 
-  # pull out the directive
-  directive = directiveRequest[WorkloadConstants.REQUEST_DIRECTIVE]
+  # pull out the dispatch
+  dispatch = dispatchRequest[WorkloadConstants.REQUEST_DIRECTIVE]
 
-  # map request to directive function.  This is the equivilent of a Python Switch statement.
-  func=directiveSwitchStmt[directive];
+  # map request to dispatch function.  This is the equivilent of a Python Switch statement.
+  func=dispatchSwitchStmt[dispatch];
 
-  # invoke directive function.  Note: resultResponseDict will be updated with results
-  resultResponseDict = func(directiveRequest, resultResponseDict);
+  # invoke dispatch function.  Note: resultResponseDict will be updated with results
+  resultResponseDict = func(dispatchRequest, resultResponseDict);
 
   # return APIG compatible results
   # Setup Lambda-->APIG Response
@@ -146,8 +151,9 @@ def lambda_handler(event, context):
   #   "headers": {"headerName": "headerValue", ...},
   #   "body": "..."
   # }
-  resultResponseDict[WorkloadConstants.RESULT_BODY] = (json.dumps(resultResponseDict[WorkloadConstants.RESULT_BODY]))
-  logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
+  # resultResponseDict[WorkloadConstants.RESULT_BODY] = (json.dumps(resultResponseDict[WorkloadConstants.RESULT_BODY]))
+  #logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
+  logger.info('YAML version of output is: \n' + yaml.dump(resultResponseDict, indent=2, default_flow_style=False))
   return (resultResponseDict);
 
 if __name__ == "__main__":
@@ -306,6 +312,56 @@ if __name__ == "__main__":
     "isBase64Encoded": False
 }
 
+  TestStartEvent = {
+    "resource": "/workloads/{workload+}",
+    "path": "/workloads/SampleWorkload-01",
+    "httpMethod": "GET",
+    "headers": {},
+    "multiValueHeaders": {},
+    "queryStringParameters": {
+      "action": "Start"
+    },
+    "multiValueQueryStringParameters": {
+      "action": [
+        "Start"
+      ]
+    },
+    "pathParameters": {
+      "workload": "SampleWorkload-01"
+    },
+    "stageVariables": {},
+    "requestContext": {
+      "path": "/workloads/{workload+}",
+      "accountId": "123456789012",
+      "resourceId": "uzslb4",
+      "stage": "test-invoke-stage",
+      "domainPrefix": "testPrefix",
+      "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
+      "identity": {
+        "cognitoIdentityPoolId": {},
+        "cognitoIdentityId": {},
+        "apiKey": "test-invoke-api-key",
+        "cognitoAuthenticationType": {},
+        "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
+        "apiKeyId": "test-invoke-api-key-id",
+        "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
+        "accountId": "123456789012",
+        "caller": "AIDAI3j42k4pfj2o2foij",
+        "sourceIp": "test-invoke-source-ip",
+        "accessKey": "ASIA3JFWLEFJOJVSOE3",
+        "cognitoAuthenticationProvider": {},
+        "user": "AIDAIJLJ4902JFJFS0J20"
+      },
+      "domainName": "testPrefix.testDomainName",
+      "resourcePath": "/workloads/{workload+}",
+      "httpMethod": "GET",
+      "extendedRequestId": "QimohGPmPHcFarw=",
+      "apiId": "dcamjxzqsh"
+    },
+    "body": {},
+    "isBase64Encoded": False
+  }
+
   logger.info('Lambda function called __main__() !');
 
   ###
@@ -313,4 +369,5 @@ if __name__ == "__main__":
   # lambda_handler(TestListAllWorkloads,{})
   # lambda_handler(TestListSampleWorkload01,{})
   lambda_handler(TestStopEvent,{})
+  # lambda_handler(TestStartEvent,{})
 
