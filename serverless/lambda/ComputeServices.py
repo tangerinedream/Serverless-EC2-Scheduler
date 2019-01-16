@@ -1,5 +1,6 @@
 import boto3
 import json
+import time
 
 from botocore.exceptions import ClientError
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
@@ -24,11 +25,6 @@ class ComputeServices(object):
 
   ACTION_START = 'Start'
   ACTION_STOP = 'Stop'
-
-  TIER_STOP = 'TierStop'
-  TIER_START = 'TierStart'
-  TIER_SCALING = 'TierScaling'
-  TIER_SEQ_NBR = 'TierSequence'
 
   REGISTER_TO_ELB = 'Register'
   UNREGISTER_FROM_ELB = 'Unregister'
@@ -83,9 +79,10 @@ class ComputeServices(object):
     workloadSpec = self.dataServices.lookupWorkloadSpecification(workloadName);
 
     # Sequence the Tiers within the workload
-    sequencedTiersList = self.getSequencedTierNames(workloadName, ComputeServices.ACTION_START);
+    sequencedTiersList = self.dataServices.getSequencedTierNames(workloadName, WorkloadConstants.ACTION_START);
 
     instancesStarted = [];
+
 
     # Iterate over the Sequenced Tiers of the workload to start the stopped instances
     for currTierName in sequencedTiersList:
@@ -116,7 +113,7 @@ class ComputeServices(object):
           result = retry(currStoppedInstance.start, attempts=5, sleeptime=0, jitter=0);
           instancesStarted.append(currStoppedInstance.id);
 
-          self.logger.debug('Succesfully started EC2 instance {}'.format(currStoppedInstance.id))
+          self.logger.info('Successfully started EC2 instance {}'.format(currStoppedInstance.id))
 
         except Exception as e:
           msg = 'ComputeServices.actionStartWorkload() Exception on instance {}, error {}'.format(currStoppedInstance, str(e))
@@ -124,6 +121,8 @@ class ComputeServices(object):
           self.snsServices.sendSns('ComputeServices.actionStartWorkload()', msg);
 
       # TODO: InterTier Orchestration Delay
+      sleepValue = self.dataServices.getInterTierOrchestrationDelay(currTierName, WorkloadConstants.ACTION_START);
+      time.sleep(sleepValue);
 
     return(instancesStarted)
 
@@ -133,7 +132,7 @@ class ComputeServices(object):
     workloadSpec = self.dataServices.lookupWorkloadSpecification(workloadName);
 
     # Sequence the Tiers within the workload
-    sequencedTiersList = self.getSequencedTierNames(workloadName, ComputeServices.ACTION_STOP);
+    sequencedTiersList = self.dataServices.getSequencedTierNames(workloadName, WorkloadConstants.ACTION_STOP);
 
     instancesStopped = [];
 
@@ -160,13 +159,17 @@ class ComputeServices(object):
           result = retry(currRunningInstance.stop, attempts=5, sleeptime=0, jitter=0);
           instancesStopped.append(currRunningInstance.id);
 
-          self.logger.debug('Succesfully stopped EC2 instance {}'.format(currRunningInstance.id))
+          self.logger.info('Successfully stopped EC2 instance {}'.format(currRunningInstance.id))
           #logger.info('stopInstance() for ' + self.instance.id + ' result is %s' % result)
 
         except Exception as e:
           msg = 'ComputeServices.actionStopWorkload() Exception on instance {}, error {}'.format(currRunningInstance, str(e))
           self.logger.warning(msg);
           self.snsServices.sendSns('ComputeServices.actionStopWorkload()', msg);
+
+      # TODO: InterTier Orchestration Delay
+      sleepValue = self.dataServices.getInterTierOrchestrationDelay( currTierName, WorkloadConstants.ACTION_STOP );
+      time.sleep( sleepValue );
 
     return(instancesStopped)
 
@@ -199,37 +202,6 @@ class ComputeServices(object):
 
     return(tierInstancesByStatesDict);
 
-  def getSequencedTierNames(self, workloadName, action):
-    # get the tiers
-    tierSpecsDict = self.dataServices.lookupTierSpecs(workloadName);
-
-    # Prefill list for easy insertion
-    length = len(tierSpecsDict);
-    sequencedTierNameList = list(0 for i in range(length));
-
-
-    # action indicates whether it is a TIER_STOP, or TIER_START, as they may have different sequences
-    # Sequence is ascending
-    for tierName, tierAttributes in tierSpecsDict.items():
-      self.logger.debug('sequenceTiers() Action={}, currKey={}, currAttributes={})'.format(action, tierName, tierAttributes))
-
-      # This will be used to point to relevant dict within a specific tier's spec dict
-      tierActionAttributes = {}
-
-      if (action == ComputeServices.ACTION_STOP):
-        # Locate the TIER_STOP Dictionary
-        tierActionAttributes = tierAttributes[ComputeServices.TIER_STOP]
-
-      elif (action == ComputeServices.ACTION_START):
-        tierActionAttributes = tierAttributes[ComputeServices.TIER_START]
-
-      # Insert into the List
-      idx = int(tierActionAttributes[ComputeServices.TIER_SEQ_NBR]);
-      sequencedTierNameList[idx] = tierName;
-
-    self.logger.debug('sequenceTiers() List for Action={} is {}'.format(action, sequencedTierNameList))
-
-    return (sequencedTierNameList)
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   # ELB Focused Methods
@@ -365,7 +337,7 @@ class ComputeServices(object):
 
       # if (self.logger.getEffectiveLevel() == logging.DEBUG):
       for curr in targetInstanceColl:
-        self.logger.debug('lookupInstancesByFilter(): Found the following matching targets %s' % curr)
+        self.logger.info('lookupInstancesByFilter(): Found the following matching targets %s' % curr)
 
     except Exception as e:
       msg = 'lookupInstancesByFilter() Exception encountered during instance filtering '

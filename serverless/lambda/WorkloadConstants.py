@@ -27,6 +27,11 @@ RESULT_LIST_ALL_WORKLOADS_REQUEST = 'listAllWorkloads'
 
 WORKLOAD_RESULTS_KEY = 'Workloads'
 
+TIER_STOP = 'TierStop'
+TIER_START = 'TierStart'
+TIER_SCALING = 'TierScaling'
+TIER_SEQ_NBR = 'TierSequence'
+
 ACTION_START='Start'
 ACTION_STOP='Stop'
 ACTION_SCALE='Scale'

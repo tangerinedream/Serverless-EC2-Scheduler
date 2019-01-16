@@ -387,6 +387,7 @@ if __name__ == "__main__":
   # Executes various test cases
   # lambda_handler(TestListAllWorkloads,{})
   # lambda_handler(TestListSampleWorkload01,{})
-  # lambda_handler(TestStopEvent,{})
-  lambda_handler(TestStartEvent,{})
+  # lambda_handler(TestStartEvent,{})
+  lambda_handler(TestStopEvent,{})
+
 

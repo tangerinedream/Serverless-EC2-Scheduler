@@ -85,6 +85,7 @@ class WorkloadProxyDelegate( object ):
 
       # Initialize common services with per request info
       workloadName = requestDict[WorkloadConstants.REQUEST_PARAM_WORKLOAD]
+      self.dataServices.initializeRequestState();
       self.notificationServices.initializeRequestState( self.snsTopic, workloadName, region );
       self.computeServices.initializeRequestState( self.dataServices, self.notificationServices, region );
 

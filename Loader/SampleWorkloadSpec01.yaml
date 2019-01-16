@@ -21,11 +21,11 @@ tiers:
       TierStart:
         TierSequence: 2
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 0
       TierStop:
         TierSequence: 0
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 0
       TierScaling:
         DevMode: 
           InstanceType: t2.nano
@@ -45,11 +45,11 @@ tiers:
       TierStart:
         TierSequence: 1
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 2
       TierStop:
         TierSequence: 1
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 2
       TierScaling:
         DevMode: 
           InstanceType: t2.nano
@@ -69,11 +69,11 @@ tiers:
       TierStart:
         TierSequence: 0
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 2
       TierStop:
         TierSequence: 2
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 2
       TierScaling:
         DevMode: 
           InstanceType: t2.nano

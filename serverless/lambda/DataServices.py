@@ -21,10 +21,6 @@ class DataServices(object):
   TIER_FILTER_TAG_VALUE = 'TierTagValue'
   TIER_NAME = 'TierTagValue'
 
-  TIER_STOP = 'TierStop'
-  TIER_START = 'TierStart'
-  TIER_SCALING = 'TierScaling'
-
   # Mapping of Python Class Variables to DynamoDB Attribute Names in Tier Table
   TIER_SEQ_NBR = 'TierSequence'
   TIER_SYCHRONIZATION = 'TierSynchronization'
@@ -35,7 +31,7 @@ class DataServices(object):
   INTER_TIER_ORCHESTRATION_DELAY_DEFAULT = 5
 
   FLEET_SUBSET = 'FleetSubset'
-#  WORKLOAD_RESULTS_KEY = 'Workloads'
+
 
 
   def __init__(self, dynamoDBRegion, logLevelStr):
@@ -46,6 +42,7 @@ class DataServices(object):
     self.dynDBC = self.makeDynamoDBConnection();
 
     self.dynDBR = self.makeDynamoDBResource();
+    self.dynDBDeserializer = boto3.dynamodb.types.TypeDeserializer()
 
     self.tierSpecTable = self.dynDBR.Table(DataServices.TIER_SPEC_TABLE_NAME)
 
@@ -54,11 +51,11 @@ class DataServices(object):
       DataServices.TIER_FILTER_TAG_VALUE,
       DataServices.TIER_SPEC_TABLE_NAME,
       DataServices.TIER_SPEC_PARTITION_KEY,
-      DataServices.TIER_STOP,
-      DataServices.TIER_START,
-      DataServices.TIER_SCALING,
       DataServices.TIER_NAME,
-      DataServices.TIER_SEQ_NBR,
+      WorkloadConstants.TIER_STOP,
+      WorkloadConstants.TIER_START,
+      WorkloadConstants.TIER_SCALING,
+      WorkloadConstants.TIER_SEQ_NBR,
 #     The following are not supported in the Serverless Version of the Scheduler
 #       DataServices.TIER_SYCHRONIZATION,
 #       DataServices.TIER_STOP_OVERRIDE_FILENAME,
@@ -66,6 +63,12 @@ class DataServices(object):
       DataServices.INTER_TIER_ORCHESTRATION_DELAY
     ]
 
+  def initializeRequestState( self ):
+    self.tierSpecs = {}
+
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # Tier Methods
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def lookupTierSpecs(self, tierIdentifier):
     '''
@@ -106,24 +109,98 @@ class DataServices(object):
           # Create dict entry for each Tier
           # Pull out the Dictionaries for each of the sections below
           # Result is a key, and a dictionary
-          if (DataServices.TIER_STOP in currTier):
+          if (WorkloadConstants.TIER_STOP in currTier):
             tiersSpecificationDict[currTier[DataServices.TIER_NAME]].update(
-              {DataServices.TIER_STOP: currTier[DataServices.TIER_STOP]})
+              {WorkloadConstants.TIER_STOP: currTier[WorkloadConstants.TIER_STOP]})
 
-          if (DataServices.TIER_START in currTier):
+          if (WorkloadConstants.TIER_START in currTier):
             tiersSpecificationDict[currTier[DataServices.TIER_NAME]].update(
-              {DataServices.TIER_START: currTier[DataServices.TIER_START]})
+              {WorkloadConstants.TIER_START: currTier[WorkloadConstants.TIER_START]})
 
-          if (DataServices.TIER_SCALING in currTier):
+          if (WorkloadConstants.TIER_SCALING in currTier):
             tiersSpecificationDict[currTier[DataServices.TIER_NAME]].update(
-              {DataServices.TIER_SCALING: currTier[DataServices.TIER_SCALING]})
+              {WorkloadConstants.TIER_SCALING: currTier[WorkloadConstants.TIER_SCALING]})
 
             if (DataServices.FLEET_SUBSET in currTier):
               tiersSpecificationDict[currtier[DataServices.TIER_NAME]].update(
                 {DataServices.FLEET_SUBSET: currTier[DataServices.FLEET_SUBSET]})
 
+    # We hang on to the results for this request so we don't have to lookup several more times
+    self.tierSpecs = tiersSpecificationDict
     return(tiersSpecificationDict);
 
+  def getInterTierOrchestrationDelay( self, targetTierName, action ):
+    delay = 0
+
+    tierSpecsDict = self.tierSpecs
+
+    for currTierName, tierAttributes in tierSpecsDict.items():
+      self.logger.debug(
+        'sequenceTiers() Action={}, currKey={}, currAttributes={})'.format( action, currTierName, tierAttributes ) )
+
+      if( currTierName == targetTierName ):
+
+        # This will be used to point to relevant dict within a specific tier's spec dict
+        tierActionAttributes = {}
+
+        if (action == WorkloadConstants.ACTION_STOP):
+          # Locate the TIER_STOP Dictionary
+          tierActionAttributes = tierAttributes[WorkloadConstants.TIER_STOP]
+
+        elif (action == WorkloadConstants.ACTION_START):
+          tierActionAttributes = tierAttributes[WorkloadConstants.TIER_START]
+
+        if( DataServices.INTER_TIER_ORCHESTRATION_DELAY in tierActionAttributes):
+          delayStr = tierActionAttributes[DataServices.INTER_TIER_ORCHESTRATION_DELAY]
+          try:
+            delay = float( delayStr )
+          except ValueError:
+            self.logger.warning('DataServices cannot convert InterTierOrchestrationDelay to a float().  Tier is {} Action is {}'.format(
+              targetTierName,
+              action
+            ))
+
+    return(delay)
+
+
+  def getSequencedTierNames(self, workloadName, action):
+    # get the tiers
+    tierSpecsDict = self.tierSpecs
+    if(not tierSpecsDict):
+      tierSpecsDict = self.lookupTierSpecs( workloadName );
+
+
+    # Prefill list for easy insertion
+    length = len(tierSpecsDict);
+    sequencedTierNameList = list(0 for i in range(length));
+
+
+    # action indicates whether it is a TIER_STOP, or TIER_START, as they may have different sequences
+    # Sequence is ascending
+    for tierName, tierAttributes in tierSpecsDict.items():
+      self.logger.debug('sequenceTiers() Action={}, currKey={}, currAttributes={})'.format(action, tierName, tierAttributes))
+
+      # This will be used to point to relevant dict within a specific tier's spec dict
+      tierActionAttributes = {}
+
+      if (action == WorkloadConstants.ACTION_STOP):
+        # Locate the TIER_STOP Dictionary
+        tierActionAttributes = tierAttributes[WorkloadConstants.TIER_STOP]
+
+      elif (action == WorkloadConstants.ACTION_START):
+        tierActionAttributes = tierAttributes[WorkloadConstants.TIER_START]
+
+      # Insert into the List
+      idx = int(tierActionAttributes[WorkloadConstants.TIER_SEQ_NBR]);
+      sequencedTierNameList[idx] = tierName;
+
+    self.logger.debug('sequenceTiers() List for Action={} is {}'.format(action, sequencedTierNameList))
+
+    return (sequencedTierNameList)
+
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # Workload Methods
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   @retriable(attempts=5, sleeptime=0, jitter=0)
   def lookupWorkloadSpecification(self, workloadIdentifier):
     jsonWrapper = {}
@@ -148,7 +225,7 @@ class DataServices(object):
         # Get the dynamoDB Item from the result
         workloadAsDynamoDBItem = dynamodbItem['Item']
 
-        workloadSpec = self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem)
+        workloadSpec = self.dynamoDBItemToPythonDict(workloadAsDynamoDBItem)
 
     workloadsResultList.append(workloadSpec)
     jsonWrapper[WorkloadConstants.WORKLOAD_RESULTS_KEY]=workloadsResultList
@@ -175,27 +252,37 @@ class DataServices(object):
 
       # Strip out the DynamoDB value type dictionary
       for workloadAsDynamoDBItem in workloadResultsListAsDynamoDBItems:
-        workloadsResultList.append( self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem) );
+        #workloadsResultList.append( self.workloadDynamoDBItemToPythonDict(workloadAsDynamoDBItem) );
+        workloadsResultList.append( self.dynamoDBItemToPythonDict( workloadAsDynamoDBItem ) );
 
     jsonWrapper[WorkloadConstants.WORKLOAD_RESULTS_KEY]=workloadsResultList
     return (jsonWrapper);
 
-  def workloadDynamoDBItemToPythonDict(self, dynamoDBWorkloadItem):
-    workloadAsPythonDict = {};
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # Utility Methods
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # def workloadDynamoDBItemToPythonDict(self, dynamoDBWorkloadItem):
+  #   workloadAsPythonDict = {};
+  #
+  #   for workloadAttrKey, workloadAttrVal in dynamoDBWorkloadItem.items():
+  #     workloadVal = list( workloadAttrVal.values() )[0];  # new for python 3
+  #     workloadAsPythonDict[workloadAttrKey] = workloadVal;
+  #     self.logger.info( 'Workload Attribute [%s maps to %s]' % (workloadAttrKey, workloadVal) );
+  #
+  #   return(workloadAsPythonDict);
 
-    for workloadAttrKey, workloadAttrVal in dynamoDBWorkloadItem.items():
-      workloadVal = list( workloadAttrVal.values() )[0];  # new for python 3
-      workloadAsPythonDict[workloadAttrKey] = workloadVal;
-      self.logger.info( 'Workload Attribute [%s maps to %s]' % (workloadAttrKey, workloadVal) );
-
-    return(workloadAsPythonDict);
+  def dynamoDBItemToPythonDict( self, dynamoDBItem ):
+    result = {}
+    for key, value in dynamoDBItem.items():
+      result[key] = self.dynDBDeserializer.deserialize(value)
+    return(result)
 
   def recursiveFindKeys(self, sourceDict, resList):
     for k, v in sourceDict.items():
       resList.append(k)
       if (isinstance(v, dict)):
         # Since scalingProfile key names are user dependent, we can't validate them
-        if (k != DataServices.TIER_SCALING):
+        if (k != WorkloadConstants.TIER_SCALING):
           self.recursiveFindKeys(v, resList)
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
