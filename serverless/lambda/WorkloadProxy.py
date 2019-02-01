@@ -10,9 +10,26 @@ from NotificationServices import NotificationServices
 from ComputeServices import ComputeServices
 import WorkloadProxyDelegate
 
+###
+# These need to be outside of __main__ so they're accessible to Lambda
+#
+
 # setup logging service
 logLevelStr = os.environ['LOG_LEVEL']
 logger = makeLogger( __name__, logLevelStr );
+
+# setup services
+dynamoDBRegion = os.environ['DYNAMODB_REGION']
+
+# Instantiation of these services provide boto3 connection pools across lambda invocations
+dataServices = DataServices( dynamoDBRegion, logLevelStr );
+
+# Instantiation of Notification Services
+topic = os.environ['SNS_TOPIC']
+notificationServices = NotificationServices( logLevelStr );
+
+# Instantiation of Compute Services
+computeServices = ComputeServices( logLevelStr );
 
 
 def dispatchUnknown(dispatchRequest, resultResponseDict):
@@ -170,18 +187,7 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
 
 
-  # setup services
-  dynamoDBRegion = os.environ['DYNAMODB_REGION']
 
-  # Instantiation of these services provide boto3 connection pools across lambda invocations
-  dataServices = DataServices( dynamoDBRegion, logLevelStr );
-
-  # Instantiation of Notification Services
-  topic = os.environ['SNS_TOPIC']
-  notificationServices = NotificationServices( logLevelStr );
-
-  # Instantiation of Compute Services
-  computeServices = ComputeServices( logLevelStr );
 
   ###
   # Example request types
