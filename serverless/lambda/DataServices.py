@@ -1,5 +1,6 @@
 import boto3
 import json
+import re
 
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
@@ -31,6 +32,8 @@ class DataServices(object):
   INTER_TIER_ORCHESTRATION_DELAY_DEFAULT = 5
 
   FLEET_SUBSET = 'FleetSubset'
+  TIER_SCALING = 'TierScaling'
+  TIER_SCALING_INSTANCE_TYPE = 'InstanceType'
 
 
 
@@ -197,6 +200,86 @@ class DataServices(object):
     self.logger.debug('sequenceTiers() List for Action={} is {}'.format(action, sequencedTierNameList))
 
     return (sequencedTierNameList)
+
+
+  def calculateFleetSubset( self, tierName, totalTierInstanceCount, profileName=None):
+
+    #	We asume that there is no profile specified and that all instances will be started
+    instancesToStart = totalTierInstanceCount
+
+    if (profileName):
+      self.logger.debug( 'fleetSubsetCalculation(): profileName {} supplied'.format(profileName) )
+
+      # Unpack the ScalingDictionary
+      tierAttributes = self.tierSpecs[tierName]
+      if (DataServices.TIER_SCALING in tierAttributes):
+
+        scalingDict = tierAttributes[DataServices.TIER_SCALING]
+        self.logger.debug( 'FleetSubset for Tier {} {} '.format(tierName, str( scalingDict )) )
+
+        if (profileName in scalingDict):
+          if DataServices.FLEET_SUBSET in scalingDict[profileName]:
+            fleetNumber = scalingDict[profileName][DataServices.FLEET_SUBSET]
+            if re.search( "%", fleetNumber ):
+              percentAsIntValue = fleetNumber.split( "%" )[0]
+              if( int( percentAsIntValue == 0 ) ):
+                instancesToStart=0
+              elif (int( percentAsIntValue ) < 0) or (int( percentAsIntValue ) > 100):
+                self.logger.info(
+                  'FleetSubset specified out of range (less than 0i%% or more than 100%%) for profile [%s] and Tier [%s], starting all EC2 instances ' % (
+                  str( self.scalingProfile ), tierName) )
+              else:
+                instancesToStart = int(
+                  round( int( percentAsIntValue ) * totalTierInstanceCount / 100.0 ) )
+                # In the event the calculated instances to start is < 1, which is cast to zero as an int,
+                #   we set the instances to start explicitly to 1.  In the case where the calculation results in 20%
+                #   for a tier, and there are only 2 instances in the tier, zero is calculated.  However, unless
+                #   the user explicitly sets the percentage to zero (or is set to ordinal zero without a percentage), the
+                #   assumption is the user does require some percentage of the tier to be used and therefore at least one
+                #   instance will be started.
+                if(instancesToStart == 0):
+                  instancesToStart=1;
+            else:
+              instancesToStart = fleetNumber
+
+        else:
+          self.logger.warning( 'FleetSubset of [%s] not in tier [%s], will start all EC2 instances within a Tier ' % (
+          str( self.scalingProfile ), tierName) )
+      else:
+        self.logger.warning(
+          'FleetSubset Profile of [%s] specified but no FleetSubset dictionary found in DynamoDB for tier [%s]. Starting all EC2 instancew within a Tier' % (
+          str( self.scalingProfile ), tierName) )
+
+    return int(instancesToStart)
+
+  def getTargetInstanceTypeForTierProfile( self, targetTierName, profileName ):
+    targetInstanceType = None
+    if(profileName is None):
+      return(targetInstanceType);
+
+    tierSpecsDict = self.tierSpecs
+
+    for currTierName, tierAttributes in tierSpecsDict.items():
+      self.logger.debug('getTargetInstanceTypeForTierProfile() currKey={}, currAttributes={})'.format(
+        currTierName,
+        tierAttributes
+        )
+      )
+
+      if( currTierName == targetTierName ):
+
+        # This will be used to point to relevant dict within a specific tier's spec dict
+        if( WorkloadConstants.TIER_SCALING in tierAttributes):
+          tierScalingAttributes = tierAttributes[WorkloadConstants.TIER_SCALING]
+          if( profileName in tierScalingAttributes):
+            targetInstanceType =  tierScalingAttributes[profileName][DataServices.TIER_SCALING_INSTANCE_TYPE]
+            # Basic check to ensure targetInstanceType contains '.'
+            if(re.search('.',targetInstanceType)):
+              return(targetInstanceType)
+            else:
+              return(None)
+
+
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   # Workload Methods

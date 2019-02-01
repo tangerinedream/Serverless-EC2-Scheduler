@@ -52,7 +52,7 @@ class WorkloadProxyDelegate( object ):
       self.logger.error( 'Exception on listAllWorkloads() call of: {}'.format( e ) )
       responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
 
-      responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
+    responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
     return (responseDict)
 
   ###
@@ -66,7 +66,7 @@ class WorkloadProxyDelegate( object ):
         'Exception on listWorkload() for workload name {}, exception is: {}'.format( workloadName, e ) )
       responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
 
-      responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
+    responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
     return (responseDict)
 
   ###
@@ -99,7 +99,18 @@ class WorkloadProxyDelegate( object ):
           responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
 
         elif (requestAction == WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START):
-          instancesActioned = self.computeServices.actionStartWorkload( workloadName, requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] );
+          # Was a Profile provided ?
+          if (WorkloadConstants.REQUEST_PARAM_PROFILE_NAME in requestDict):
+            instancesActioned = self.computeServices.actionStartWorkload(
+              workloadName,
+              requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN],
+              requestDict[WorkloadConstants.REQUEST_PARAM_PROFILE_NAME]
+            );
+          else:
+            instancesActioned = self.computeServices.actionStartWorkload(
+              workloadName,
+              requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN]
+            );
           responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
 
         else:

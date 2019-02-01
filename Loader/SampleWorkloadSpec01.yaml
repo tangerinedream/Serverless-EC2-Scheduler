@@ -31,7 +31,7 @@ tiers:
           InstanceType: t2.nano
           FleetSubset: '1'
         HATestMode:
-          InstanceType: t2.nano
+          InstanceType: t2.micro
           FleetSubset: '2'
         PerfTestMode:
           InstanceType: t3.medium
@@ -55,7 +55,7 @@ tiers:
           InstanceType: t2.nano
           FleetSubset: '1'
         HATestMode:
-          InstanceType: t2.nano
+          InstanceType: t2.micro
           FleetSubset: '2'
         PerfTestMode:
           InstanceType: t3.medium
@@ -78,7 +78,7 @@ tiers:
         DevMode: 
           InstanceType: t2.nano
         HATestMode:
-          InstanceType: t2.nano
+          InstanceType: t2.small
         PerfTestMode:
           InstanceType: t3.large
         ProdMode:

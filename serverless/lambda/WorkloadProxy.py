@@ -11,24 +11,6 @@ from ComputeServices import ComputeServices
 import WorkloadProxyDelegate
 
 
-# setup logging service
-logLevelStr = os.environ['LOG_LEVEL']
-logger = makeLogger(__name__, logLevelStr);
-
-# setup services
-dynamoDBRegion = os.environ['DYNAMODB_REGION']
-
-# Instantiation of these services provide boto3 connection pools across lambda invocations
-dataServices =  DataServices(dynamoDBRegion, logLevelStr);
-
-# Instantiation of Notification Services
-topic = os.environ['SNS_TOPIC']
-notificationServices = NotificationServices(logLevelStr);
-
-# Instantiation of Compute Services
-computeServices = ComputeServices(logLevelStr);
-
-
 def dispatchUnknown(dispatchRequest, resultResponseDict):
   logger.error('Unknown dispatch.  request info {}, result info {}'.format(dispatchRequest, resultResponseDict))
   resultResponseDict[RESULT_STATUS_CODE] = RESULT_CODE_BAD_REQUEST
@@ -69,7 +51,11 @@ def deriveDispatch(event, resultResponseDict):
           if(requestAction == WorkloadConstants.ACTION_STOP ):
             mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP;
           elif(requestAction == WorkloadConstants.ACTION_START):
-            mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START
+            mergedParamsDict[WorkloadConstants.REQUEST_DIRECTIVE] = WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START;
+            # If Start, was a Profile provided ?
+            if(WorkloadConstants.REQUEST_PARAM_PROFILE_NAME in event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY]):
+              profileName = event[WorkloadConstants.REQUEST_EVENT_QUERY_STR_PARAMETERS_KEY][WorkloadConstants.REQUEST_PARAM_PROFILE_NAME]
+              mergedParamsDict[WorkloadConstants.REQUEST_PARAM_PROFILE_NAME] = profileName
         else:
           # Don't know what the Query String is, bad request
           logger.warning('Invalid request: {} query string not present in request for workload {}'.format(WorkloadConstants.REQUEST_PARAM_ACTION, workloadName))
@@ -147,6 +133,7 @@ def lambda_handler(event, context):
   # invoke dispatch function.  Note: resultResponseDict will be updated with results
   resultResponseDict = func(dispatchRequest, resultResponseDict);
 
+  logger.info('YAML version of output is: \n' + yaml.dump(resultResponseDict, indent=2, default_flow_style=False))
   # return APIG compatible results
   # Setup Lambda-->APIG Response
   # This is what is required for Proxy responses
@@ -156,9 +143,10 @@ def lambda_handler(event, context):
   #   "headers": {"headerName": "headerValue", ...},
   #   "body": "..."
   # }
-  # resultResponseDict[WorkloadConstants.RESULT_BODY] = (json.dumps(resultResponseDict[WorkloadConstants.RESULT_BODY]))
-  #logger.info("Sending response of: " + json.dumps(resultResponseDict, indent=2));
-  logger.info('YAML version of output is: \n' + yaml.dump(resultResponseDict, indent=2, default_flow_style=False))
+  # APIG needs body value as string
+  resultResponseDict[WorkloadConstants.RESULT_BODY] = (json.dumps(resultResponseDict[WorkloadConstants.RESULT_BODY]))
+  logger.info("Sending response to APIG (body as str required by APIG) of: " + json.dumps(resultResponseDict, indent=2));
+
 
 
   # capture completion time
@@ -176,6 +164,22 @@ def lambda_handler(event, context):
   return (resultResponseDict);
 
 if __name__ == "__main__":
+  # setup logging service
+  logLevelStr = os.environ['LOG_LEVEL']
+  logger = makeLogger( __name__, logLevelStr );
+
+  # setup services
+  dynamoDBRegion = os.environ['DYNAMODB_REGION']
+
+  # Instantiation of these services provide boto3 connection pools across lambda invocations
+  dataServices = DataServices( dynamoDBRegion, logLevelStr );
+
+  # Instantiation of Notification Services
+  topic = os.environ['SNS_TOPIC']
+  notificationServices = NotificationServices( logLevelStr );
+
+  # Instantiation of Compute Services
+  computeServices = ComputeServices( logLevelStr );
 
   ###
   # Example request types
@@ -381,6 +385,60 @@ if __name__ == "__main__":
     "isBase64Encoded": False
   }
 
+  TestStartEventWithProfile = {
+    "resource": "/workloads/{workload+}",
+    "path": "/workloads/SampleWorkload-01",
+    "httpMethod": "GET",
+    "headers": {},
+    "multiValueHeaders": {},
+    "queryStringParameters": {
+      "action": "Start",
+      "profileName": "DevMode"
+    },
+    "multiValueQueryStringParameters": {
+      "action": [
+        "Start"
+      ],
+      "profileName": [
+        "DevMode", "HATestMode"
+      ]
+    },
+    "pathParameters": {
+      "workload": "SampleWorkload-01"
+    },
+    "stageVariables": {},
+    "requestContext": {
+      "path": "/workloads/{workload+}",
+      "accountId": "123456789012",
+      "resourceId": "uzslb4",
+      "stage": "test-invoke-stage",
+      "domainPrefix": "testPrefix",
+      "requestId": "bfaef07e-eaea-11e8-9b26-5774106da3f3",
+      "identity": {
+        "cognitoIdentityPoolId": {},
+        "cognitoIdentityId": {},
+        "apiKey": "test-invoke-api-key",
+        "cognitoAuthenticationType": {},
+        "userArn": "arn:aws:iam::123456789012:user/MyIAMName",
+        "apiKeyId": "test-invoke-api-key-id",
+        "userAgent": "aws-internal/3 aws-sdk-java/1.11.432 Linux/4.9.124-0.1.ac.198.71.329.metal1.x86_64 OpenJDK_64-Bit_Server_VM/25.181-b13 java/1.8.0_181",
+        "accountId": "123456789012",
+        "caller": "AIDAI3j42k4pfj2o2foij",
+        "sourceIp": "test-invoke-source-ip",
+        "accessKey": "ASIA3JFWLEFJOJVSOE3",
+        "cognitoAuthenticationProvider": {},
+        "user": "AIDAIJLJ4902JFJFS0J20"
+      },
+      "domainName": "testPrefix.testDomainName",
+      "resourcePath": "/workloads/{workload+}",
+      "httpMethod": "GET",
+      "extendedRequestId": "QimohGPmPHcFarw=",
+      "apiId": "dcamjxzqsh"
+    },
+    "body": {},
+    "isBase64Encoded": False
+  }
+
   logger.info('Lambda function called __main__() !');
 
   ###
@@ -388,6 +446,7 @@ if __name__ == "__main__":
   # lambda_handler(TestListAllWorkloads,{})
   # lambda_handler(TestListSampleWorkload01,{})
   # lambda_handler(TestStartEvent,{})
+  # lambda_handler(TestStartEventWithProfile,{})
   lambda_handler(TestStopEvent,{})
 
 

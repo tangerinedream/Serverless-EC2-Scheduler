@@ -5,6 +5,7 @@ import time
 from botocore.exceptions import ClientError
 from redo import retriable, retry  # See action function  https://github.com/mozilla-releng/redo
 #from retrying import retry  # See  https://pypi.org/project/retrying/ seems unable to natively wrap api calls
+import re
 
 import WorkloadConstants
 from NotificationServices import NotificationServices
@@ -28,6 +29,11 @@ class ComputeServices(object):
 
   REGISTER_TO_ELB = 'Register'
   UNREGISTER_FROM_ELB = 'Unregister'
+
+  BOTO3_INSTANCE_STATE_STOPPED = 'stopped'
+  BOTO3_INSTANCE_STATE_RUNNING = 'running'
+
+  T_UNLIMITED_REGEX_EXPRESSION='[u,U]'
 
 
 
@@ -70,11 +76,13 @@ class ComputeServices(object):
     # Get this once per request
     self.elbsInRegionList = self.getELBListInRegion();
 
+    self.vpcId = None;  # This will be captured/set in lookupInstancesByFilter()
+
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   # Workload Actions
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  def actionStartWorkload(self, workloadName, dryRunFlag):
+  def actionStartWorkload(self, workloadName, dryRunFlag, profileName=None):
     # Need the workload spec to correctly scope the search for instances
     workloadSpec = self.dataServices.lookupWorkloadSpecification(workloadName);
 
@@ -89,15 +97,22 @@ class ComputeServices(object):
       self.logger.info('Starting Tier: {}'.format(currTierName));
 
       # For each tier, get the Instance State of each instance
-      tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
+      #tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
 
-      # Grab the Stopped List within the Map
-      stopped = self.BOTO3_INSTANCE_STATE_MAP[80]
-      instancesToStart =  tierInstancesByInstanceStateDict[stopped]
-      # TODO: Fleet Subset manipulation
+      totalInstancesInTier = self.getTierInstances( workloadSpec, currTierName )
+
+      # Scale all Instances in the tier if Profile Provided
+      if(profileName is not None):
+        targetInstanceTypeForTier = self.dataServices.getTargetInstanceTypeForTierProfile( currTierName, profileName );
+        # If profile exists and contains an instance type, attempt to scale the tier
+        if( targetInstanceTypeForTier ):
+          for currInstance in totalInstancesInTier:
+            self.scaleInstance(currInstance, targetInstanceTypeForTier)
+
+      toStartInstanceList = self.makeListOfInstancesToStart( currTierName, totalInstancesInTier, profileName );
 
       # Start each instance in the list
-      for currStoppedInstance in instancesToStart:
+      for currInstance in toStartInstanceList:
         result = 'Instance not Running'
 
         if( dryRunFlag ):
@@ -105,22 +120,21 @@ class ComputeServices(object):
           continue;
 
         # Address reregistration of instance to ELB(s) if appropriate
-        self.reregisterInstanceToELBs(currStoppedInstance);
-
-        # TODO: Scaling
+        self.reregisterInstanceToELBs(currInstance);
 
         try:
-          result = retry(currStoppedInstance.start, attempts=5, sleeptime=0, jitter=0);
-          instancesStarted.append(currStoppedInstance.id);
+          self.logger.info( 'Attempting to Start {}'.format( currInstance.id ) )
+          result = retry(currInstance.start, attempts=5, sleeptime=0, jitter=0);
+          instancesStarted.append(currInstance.id);
 
-          self.logger.info('Successfully started EC2 instance {}'.format(currStoppedInstance.id))
+          self.logger.info('Successfully started EC2 instance {}'.format(currInstance.id))
 
         except Exception as e:
-          msg = 'ComputeServices.actionStartWorkload() Exception on instance {}, error {}'.format(currStoppedInstance, str(e))
+          msg = 'ComputeServices.actionStartWorkload() Exception on instance {}, error {}'.format(currInstance, str(e))
           self.logger.warning(msg);
           self.snsServices.sendSns('ComputeServices.actionStartWorkload()', msg);
 
-      # TODO: InterTier Orchestration Delay
+      # InterTier Orchestration Delay
       sleepValue = self.dataServices.getInterTierOrchestrationDelay(currTierName, WorkloadConstants.ACTION_START);
       time.sleep(sleepValue);
 
@@ -141,14 +155,32 @@ class ComputeServices(object):
       self.logger.info('Stopping Tier: {}'.format(currTierName));
 
       # For each tier, get the Instance State of each instance
-      tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
+      # tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
 
       # Grab the Running List within the Map
-      running = self.BOTO3_INSTANCE_STATE_MAP[16]
-      instancesToStop =  tierInstancesByInstanceStateDict[running]
+      #instancesToStop =  tierInstancesByInstanceStateDict[self.BOTO3_INSTANCE_STATE_RUNNING]
+
+
+
+      # Get the instances, and pull out those that need to be stopped
+      totalTierInstanceList = []
+      totalInstancesInTier = self.getTierInstances(workloadSpec, currTierName)
+      for i in totalInstancesInTier:
+        totalTierInstanceList.append( i )  # from Collection --> List
+
+      # Get the Running instances from the total list
+      instancesToStopList = self.getTierInstancesByInstanceState(totalTierInstanceList, self.BOTO3_INSTANCE_STATE_RUNNING)
+      if(len(instancesToStopList) == 0):
+        self.logger.info( 'No instances found to Stop')
+      else:
+        for instance in instancesToStopList:
+          self.logger.info('Instance found to Stop {}'.format(instance.id))
+
+
+      # instancesToStop = self.getTierInstancesByInstanceState(totalTierInstanceList, self.BOTO3_INSTANCE_STATE_RUNNING)
 
       # Stop each instance in the list
-      for currRunningInstance in instancesToStop:
+      for currRunningInstance in instancesToStopList:
         result = 'Instance not Stopped'
 
         if( dryRunFlag ):
@@ -156,6 +188,7 @@ class ComputeServices(object):
           continue;
 
         try:
+          self.logger.info( 'Attempting to Stop {}'.format(currRunningInstance.id) )
           result = retry(currRunningInstance.stop, attempts=5, sleeptime=0, jitter=0);
           instancesStopped.append(currRunningInstance.id);
 
@@ -167,40 +200,241 @@ class ComputeServices(object):
           self.logger.warning(msg);
           self.snsServices.sendSns('ComputeServices.actionStopWorkload()', msg);
 
-      # TODO: InterTier Orchestration Delay
+      # InterTier Orchestration Delay
       sleepValue = self.dataServices.getInterTierOrchestrationDelay( currTierName, WorkloadConstants.ACTION_STOP );
       time.sleep( sleepValue );
 
     return(instancesStopped)
 
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # Scaling Methods
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  def scaleInstance( self, instance, targetInstanceType ):
 
+    result = 'no result'
+    instanceState = instance.state
+    if (instanceState['Name'] == 'stopped'):
+
+      # Tokenize instance type
+      tokenizedTargetInstanceType = targetInstanceType.split( '.' )
+      targetInstanceFamily = tokenizedTargetInstanceType[0]
+      targetInstanceType = tokenizedTargetInstanceType[0] + '.' + tokenizedTargetInstanceType[1]
+
+      # "t" class instances to be forced to EbsOptimized == False, and checked for Unlimited setting
+      tTypeInstanceFamilyList = ['t2', 't3']
+      if (targetInstanceFamily in tTypeInstanceFamilyList):
+        # If "t" instance family (e.g. t2 or t3),
+        #   1. Set EBS Optimized to False
+        #   2. Check to see if we need to flip from/to "standard" / "unlimited"
+        ebsOptimizedAttr = False
+        uFlag = False
+        if( len(tokenizedTargetInstanceType) == 3 ):
+          targetUnlimitedFlag =  tokenizedTargetInstanceType[2]
+
+          # Does it have unlimited flag set ?
+          uFlag=re.search(ComputeServices.T_UNLIMITED_REGEX_EXPRESSION, targetUnlimitedFlag);
+
+        self.setTFamilyInstanceCreditSpecification(instance, uFlag)
+
+      else:
+        ebsOptimizedAttr = instance.ebs_optimized  # May have been set to True or False previously
+
+      # Now that t2/t3 unlimited flag is correctly set,
+      # we can finally change instance type and/or size as well as set the ebsOptimize flag
+
+      self.executeChangeInstanceType(instance, targetInstanceType);
+
+      self.executeModifyEBSOptimizationAttr(instance, ebsOptimizedAttr);
+
+      self.validateInstanceChanges(instance, targetInstanceType);
+
+    else:
+      logMsg = (
+        'scaleInstance() requested to change instance type for non-stopped instance {}. '
+        'No action taken'.format(instance.id)
+      )
+      self.logger.warning( logMsg )
+
+  def executeChangeInstanceType( self, instance, targetInstanceType ):
+    modifiedInstanceTypeKwargs = {
+      "InstanceType": {'Value': targetInstanceType}
+    }
+
+    # Boto3 only allows you to modify one attribute at a time.
+    try:
+      result = retry( instance.modify_attribute, attempts=5, jitter=0, sleeptime=0, kwargs=modifiedInstanceTypeKwargs )
+      self.logger.info( 'Instance {} scaled to Instance Type {}'.format(
+        instance.id,
+        targetInstanceType )
+      )
+    except Exception as e:
+      msg = 'scaleInstance() Exception for instance.modify_attribute(). Instance {} , error --> {}'.format(
+        instance.id,
+        str( e )
+      )
+      self.logger.warning( msg )
+      self.snsServices.sendSns(
+        "scaleInstance():instance.modify_attribute() for instance change has encountered an exception", str( e ) )
+
+  def executeModifyEBSOptimizationAttr( self, instance, ebsOptimizedAttr ):
+    # Boto3 only allows you to modify one attribute at a time.
+    modifiedEBSOptimizedKwargs = {
+      "EbsOptimized": {'Value': ebsOptimizedAttr}
+    }
+    try:
+      result = retry( instance.modify_attribute, attempts=5, jitter=0, sleeptime=0, kwargs=modifiedEBSOptimizedKwargs )
+    except Exception as e:
+      msg = 'scaleInstance() Exception for instance.modify_attribute(). Instance {} , error --> {}'.format(
+        instance.id,
+        str( e )
+      )
+      self.logger.warning( msg )
+      self.snsServices.sendSns(
+        "scaleInstance():instance.modify_attribute() for EBSOptimization has encountered an exception", str( e ) )
+
+  def validateInstanceChanges( self, instance, targetInstanceType ):
+    try:
+      result = retry(
+        self.compareInstanceTypeValues,
+        attempts=8, sleeptime=15, jitter=0,
+        args=(instance, targetInstanceType,)
+      )
+      self.logger.debug(
+        'scaleInstance():compareInstanceTypeValues for instance {}, result is {}'.format( instance.id, result ) )
+
+    except Exception as e:
+      msg = ('scaleInstance() Exception for instance {}, error --> currentInstanceTypeValue'
+             'does not match targetInstanceType'.format( instance.id )
+             )
+      self.logger.warning( msg )
+      tagsYaml = self.retrieveTags( instance )
+      snsSubject = 'scaleInstance() has encountered an exception for instance {}'.format( instance.id )
+      snsMessage = '%s\n%s' % (str( e ), str( tagsYaml ))
+      self.snsServices.sendSns( snsSubject, snsMessage )
+
+  def setTFamilyInstanceCreditSpecification( self, instance, unlimitedFlag ):
+
+    # Get the instance's current Credit State
+    instanceCreditState = None
+    instanceIdKswargs = {
+      "InstanceIds": [instance.id]
+    }
+    try:
+      result = retry(
+        self.ec2Client.describe_instance_credit_specifications,
+        attempts=5, jitter=0, sleeptime=0,
+        kwargs=instanceIdKswargs
+      )
+      instanceCreditState = result['InstanceCreditSpecifications'][0]['CpuCredits']
+    except Exception as e:
+      msg = 'setTFamilyInstanceCreditSpecification() exception on describe_instance_credit_specifications() for EC2 instance {}, error --> {}'.format(
+        instance.id,
+        str( e )
+      )
+      self.logger.warning( msg )
+      raise e
+
+    try:
+      # Check current and if standard change instance_credit_specification to unlimited
+      if(instanceCreditState == 'standard' and unlimitedFlag==True):
+        # Change credit state to unlimited
+        result = retry(
+          self.ec2Client.modify_instance_credit_specification,
+          attempts=5, sleeptime=0, jitter=0,
+          kwargs={"InstanceCreditSpecifications": [{'InstanceId': instance.id, 'CpuCredits': 'unlimited'}]}
+        )
+
+      # Check current and if unlimited change instance_credit_specification to standard
+      elif(instanceCreditState == 'unlimited' and unlimitedFlag==False):
+        # Change credit state to standard
+        result = retry(
+          self.ec2Client.modify_instance_credit_specification,
+          attempts=5, sleeptime=0, jitter=0,
+          kwargs={"InstanceCreditSpecifications": [{'InstanceId': instance.id, 'CpuCredits': 'standard'}]}
+        )
+
+    except Exception as e:
+      msg = ('setTFamilyInstanceCreditSpecification() exception on modify_instance_credit_specification()'
+      'for EC2 instance {}, error --> {}'.format(
+        instance.id,
+        str( e )
+      ))
+      self.logger.warning( msg )
+      raise e
+
+  def compareInstanceTypeValues( self, instance, requestedInstanceTypeValue ):
+    currentInstanceTypeValue = list(
+      self.ec2Client.describe_instance_attribute( InstanceId=instance.id, Attribute='instanceType' )[
+        'InstanceType'].values()
+    )
+
+    self.logger.debug( 'compareInstanceTypeValues(): Instance-> {} Current Type-> {} Target Type-> {}'.format(
+        instance.id,
+        currentInstanceTypeValue,
+        requestedInstanceTypeValue
+      )
+    )
+
+    if (currentInstanceTypeValue[0] not in requestedInstanceTypeValue):
+      raise ValueError( "Current instance type value does not match modified instance type value." )
+
+  def retrieveTags( self, instance ):
+    ##Return EC2 Tags of given instance in YAML format.
+    tags = self.ec2Client.describe_instances(InstanceIds=[instance.id] )['Reservations'][0]['Instances'][0]['Tags']
+    tagsYaml = yaml.safe_dump( tags, explicit_start=True, default_flow_style=False )
+    logger.info( 'retrieveTags(): Retrieve and return instance EC2 tags in YAML format.' )
+    logger.debug( 'retrieveTags(): EC2 tag details for {}'.format(instance.id) )
+    logger.debug( 'retrieveTags(): {}'.format(tagsYaml) )
+    return tagsYaml
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   # Supporting Methods
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  def getTierInstancesByInstanceState(self, workloadSpecDict, tierName):
+  def makeListOfInstancesToStart( self, currTierName, tierInstancesCollection, profileName ):
+
+    # There's no method to get the number of elements in this collection, only iterate through them
+    tierInstancesList = []
+    for i in tierInstancesCollection:
+      tierInstancesList.append( i )  # from Collection --> List
+
+    instanceCountToStartCnt = self.dataServices.calculateFleetSubset( currTierName, len(tierInstancesList), profileName );
+
+    # Now pick the instances to start from the fleet subset
+    instancesToStartList = tierInstancesList[:instanceCountToStartCnt]
+
+    for excludedInstance in tierInstancesList[instanceCountToStartCnt:] :
+      self.logger.info('Instance {} excluded from instance start list due to Fleet Subset specification.'.format(excludedInstance.id))
+
+    # Remove instances that are already in running state
+    for instanceToRemove in instancesToStartList:
+      if (instanceToRemove.state['Name'] == ComputeServices.BOTO3_INSTANCE_STATE_RUNNING):
+        instancesToStartList.remove( instanceToRemove )
+        self.logger.info( 'Instance {} excluded from instance Start list as it is already running'.format( instanceToRemove.id ) )
+
+    return (instancesToStartList);
+
+  def getTierInstancesByInstanceState( self, instances, state ):
+    res = []
+    for i in instances:
+      instanceStateDict = i.state
+      if( instanceStateDict['Name'] == state):
+        res.append(i)
+
+    return(res)
+
+  def getTierInstances(self, workloadSpecDict, tierName):
     # Return the running and stopped instances through a dictoionary of Lists (running, stopped)
-    tierInstancesByStatesDict = {}
+    allTierInstancesDict = {}
+    allInstanceStatesExceptTerminated = ['pending', 'running', 'shutting-down', 'stopping', 'stopped']
 
     # Find the stopped instances of this tier
     try:
-      stopped = self.BOTO3_INSTANCE_STATE_MAP[80]
-      stoppedInstancesList = self.lookupInstancesByFilter(workloadSpecDict, tierName, stopped)
-      tierInstancesByStatesDict[stopped] =  stoppedInstancesList
+      allTierInstancesDict = self.lookupInstancesByFilter(workloadSpecDict, tierName, allInstanceStatesExceptTerminated)
     except Exception as e:
-      self.logger.error('getTierInstancesByInstanceState() for stopped had exception of {}'.format(e))
-      self.snsServices.sendSns("getTierInstancesByInstanceState() has encountered an exception", str(e))
+      self.logger.error('getTierInstances() for stopped had exception of {}'.format(e))
+      self.snsServices.sendSns("getTierInstances() has encountered an exception", str(e))
 
-    # Find the running instances of this tier
-    try:
-      running = self.BOTO3_INSTANCE_STATE_MAP[16]
-      runningInstancesList = self.lookupInstancesByFilter(workloadSpecDict, tierName, running)
-      tierInstancesByStatesDict[running] =  runningInstancesList
-    except Exception as e:
-      self.logger.error('getTierInstancesByInstanceState() for running had exception of {}'.format(e))
-      self.snsServices.sendSns("getTierInstancesByInstanceState() has encountered an exception", str(e))
-
-    return(tierInstancesByStatesDict);
+    return(allTierInstancesDict);
 
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -283,12 +517,12 @@ class ComputeServices(object):
   # Lookups
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   @retriable(attempts=5, sleeptime=0, jitter=0)
-  def lookupInstancesByFilter(self, workloadSpecificationDict, tierName, targetInstanceStateString):
+  def lookupInstancesByFilter(self, workloadSpecificationDict, tierName, targetInstanceStateList=None):
     # Use the filter() method of the instances collection to retrieve
     # all running EC2 instances.
     specDict = workloadSpecificationDict[WorkloadConstants.WORKLOAD_RESULTS_KEY][0]
     self.logger.debug('lookupInstancesByFilter() seeking instances in tier %s' % tierName)
-    self.logger.debug('lookupInstancesByFilter() instance state %s' % targetInstanceStateString)
+    self.logger.debug('lookupInstancesByFilter() instance state %s' % targetInstanceStateList)
     self.logger.debug('lookupInstancesByFilter() tier tag key %s' % specDict[ComputeServices.TIER_FILTER_TAG_KEY])
     self.logger.debug('lookupInstancesByFilter() tier tag value %s' % tierName)
     self.logger.debug('lookupInstancesByFilter() Env tag key %s' % specDict[
@@ -297,10 +531,6 @@ class ComputeServices(object):
       ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_VALUE])
 
     targetFilter = [
-      {
-        'Name': 'instance-state-name',
-        'Values': [targetInstanceStateString]
-      },
       {
         'Name': 'tag:' + specDict[ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_KEY],
         'Values': [specDict[ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_VALUE]]
@@ -311,17 +541,27 @@ class ComputeServices(object):
       }
     ]
 
-    self.logger.debug('Filter is {}'.format(targetFilter))
+    if( targetInstanceStateList ):
+      instance_state_dict_element = {
+        'Name': 'instance-state-name',
+        'Values': targetInstanceStateList
+      }
+      targetFilter.append(instance_state_dict_element)
+      self.logger.debug('instance-state-name provided ->{}<-',format(instance_state_dict_element))
+
 
     # If the Optional VPC ID was provided to further tighten the filter, include it.
     # Only instances within the specified region and VPC within region are returned
     if (ComputeServices.WORKLOAD_VPC_ID_KEY in workloadSpecificationDict):
+      self.vpcId = specDict[ComputeServices.WORKLOAD_VPC_ID_KEY]
       vpc_filter_dict_element = {
         'Name': 'vpc-id',
-        'Values': [specDict[ComputeServices.WORKLOAD_VPC_ID_KEY]]
+        'Values': [self.vpcId]
       }
       targetFilter.append(vpc_filter_dict_element)
       self.logger.debug('VPC_ID provided, Filter List is %s' % str(targetFilter))
+
+    self.logger.debug( 'Filter is {}'.format( targetFilter ) )
 
     # Filter the instances
     targetInstanceColl = {}
@@ -329,15 +569,17 @@ class ComputeServices(object):
       targetInstanceColl = self.ec2Resource.instances.filter(Filters=targetFilter)
 #      targetInstanceColl = sorted(self.ec2Resource.instances.filter(Filters=targetFilter))
 
-      self.logger.info('lookupInstancesByFilter(): # of instances found for tier %s in state %s is %i' % (
-        tierName,
-        targetInstanceStateString,
-        len(list(targetInstanceColl)))
+      targetInstanceCollLen = len( list( targetInstanceColl ) )
+      self.logger.debug('lookupInstancesByFilter(): {} instances found for tier {} in state {}'.format(
+          targetInstanceCollLen,
+          tierName,
+          targetInstanceStateList
+        )
       )
 
       # if (self.logger.getEffectiveLevel() == logging.DEBUG):
       for curr in targetInstanceColl:
-        self.logger.info('lookupInstancesByFilter(): Found the following matching targets %s' % curr)
+        self.logger.debug('lookupInstancesByFilter(): Found the following matching targets %s' % curr)
 
     except Exception as e:
       msg = 'lookupInstancesByFilter() Exception encountered during instance filtering '
@@ -427,5 +669,5 @@ if __name__ == "__main__":
     ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_VALUE : 'Crypto',
     ComputeServices.TIER_FILTER_TAG_KEY : 'ApplicationRole',
   }
-  matchedCollectionOfInstances = compService.lookupInstancesByFilter(workloadDict, 'NAT', ComputeServices.BOTO3_INSTANCE_STATE_MAP[16]);
+  matchedCollectionOfInstances = compService.lookupInstancesByFilter(workloadDict, 'NAT', [ComputeServices.BOTO3_INSTANCE_STATE_RUNNING]);
   print('Matched Instances %s' % json.dumps(str(matchedCollectionOfInstances), indent=4));

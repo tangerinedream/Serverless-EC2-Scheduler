@@ -21,17 +21,17 @@ tiers:
       TierStart:
         TierSequence: 2
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 1
       TierStop:
         TierSequence: 0
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 1
       TierScaling:
         DevMode: 
           InstanceType: t2.nano
           FleetSubset: '1'
         HATestMode:
-          InstanceType: t2.nano
+          InstanceType: t3.micro
           FleetSubset: '2'
         PerfTestMode:
           InstanceType: t3.medium
@@ -45,17 +45,17 @@ tiers:
       TierStart:
         TierSequence: 1
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 1
       TierStop:
         TierSequence: 1
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 1
       TierScaling:
         DevMode: 
           InstanceType: t2.nano
           FleetSubset: '1'
         HATestMode:
-          InstanceType: t2.nano
+          InstanceType: t2.micro
           FleetSubset: '2'
         PerfTestMode:
           InstanceType: t3.large
@@ -69,16 +69,16 @@ tiers:
       TierStart:
         TierSequence: 0
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 2
       TierStop:
         TierSequence: 2
         TierSynchronization: 'False'
-        InterTierOrchestrationDelay: 15
+        InterTierOrchestrationDelay: 2
       TierScaling:
         DevMode: 
           InstanceType: t2.nano
         HATestMode:
-          InstanceType: t2.nano
+          InstanceType: t2.micro
         PerfTestMode:
           InstanceType: t3.large
         ProdMode:
