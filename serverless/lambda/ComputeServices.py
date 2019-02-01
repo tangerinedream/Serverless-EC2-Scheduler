@@ -498,8 +498,8 @@ class ComputeServices(object):
     try:
       elbsInRegionList = self.elbClient.describe_load_balancers();
     except Exception as e:
-      msg = 'Exception obtaining ELBs in region %s --> %s' % (workloadRegion, e)
-      subject_prefix = "Scheduler Exception in %s" % workloadRegion
+      msg = 'Exception obtaining ELBs in region %s --> %s' % (self.workloadRegion, e)
+      subject_prefix = "Scheduler Exception in %s" % self.workloadRegion
       self.logger.error(msg + str(e))
       flag = False
 
