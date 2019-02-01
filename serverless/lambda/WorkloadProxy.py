@@ -10,6 +10,10 @@ from NotificationServices import NotificationServices
 from ComputeServices import ComputeServices
 import WorkloadProxyDelegate
 
+# setup logging service
+logLevelStr = os.environ['LOG_LEVEL']
+logger = makeLogger( __name__, logLevelStr );
+
 
 def dispatchUnknown(dispatchRequest, resultResponseDict):
   logger.error('Unknown dispatch.  request info {}, result info {}'.format(dispatchRequest, resultResponseDict))
@@ -164,9 +168,7 @@ def lambda_handler(event, context):
   return (resultResponseDict);
 
 if __name__ == "__main__":
-  # setup logging service
-  logLevelStr = os.environ['LOG_LEVEL']
-  logger = makeLogger( __name__, logLevelStr );
+
 
   # setup services
   dynamoDBRegion = os.environ['DYNAMODB_REGION']
