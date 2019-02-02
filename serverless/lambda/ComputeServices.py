@@ -521,14 +521,21 @@ class ComputeServices(object):
     # Use the filter() method of the instances collection to retrieve
     # all running EC2 instances.
     specDict = workloadSpecificationDict[WorkloadConstants.WORKLOAD_RESULTS_KEY][0]
-    self.logger.debug('lookupInstancesByFilter() seeking instances in tier %s' % tierName)
-    self.logger.debug('lookupInstancesByFilter() instance state %s' % targetInstanceStateList)
-    self.logger.debug('lookupInstancesByFilter() tier tag key %s' % specDict[ComputeServices.TIER_FILTER_TAG_KEY])
-    self.logger.debug('lookupInstancesByFilter() tier tag value %s' % tierName)
-    self.logger.debug('lookupInstancesByFilter() Env tag key %s' % specDict[
-      ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_KEY])
-    self.logger.debug('lookupInstancesByFilter() Env tag value %s' % specDict[
-      ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_VALUE])
+    self.logger.debug(
+      ('lookupInstancesByFilter()] '
+        '[Tier Key-->{}] '
+        '[Tier Value-->{}] '
+        '[Environment Key-->{}] '
+        '[Environment Value-->{}] '
+        '[State-->{}] '.format(
+          specDict[ComputeServices.TIER_FILTER_TAG_KEY],
+          tierName,
+          specDict[ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_KEY],
+          specDict[ComputeServices.WORKLOAD_ENVIRONMENT_FILTER_TAG_VALUE],
+          targetInstanceStateList
+        )
+      )
+    )
 
     targetFilter = [
       {
@@ -547,7 +554,7 @@ class ComputeServices(object):
         'Values': targetInstanceStateList
       }
       targetFilter.append(instance_state_dict_element)
-      self.logger.debug('instance-state-name provided ->{}<-',format(instance_state_dict_element))
+      self.logger.debug('instance-state-name provided ->{}<-'.format(instance_state_dict_element))
 
 
     # If the Optional VPC ID was provided to further tighten the filter, include it.
@@ -559,7 +566,7 @@ class ComputeServices(object):
         'Values': [self.vpcId]
       }
       targetFilter.append(vpc_filter_dict_element)
-      self.logger.debug('VPC_ID provided, Filter List is %s' % str(targetFilter))
+      self.logger.debug('VPC_ID provided, Filter List is {}'.format(targetFilter))
 
     self.logger.debug( 'Filter is {}'.format( targetFilter ) )
 
@@ -579,7 +586,7 @@ class ComputeServices(object):
 
       # if (self.logger.getEffectiveLevel() == logging.DEBUG):
       for curr in targetInstanceColl:
-        self.logger.debug('lookupInstancesByFilter(): Found the following matching targets %s' % curr)
+        self.logger.debug('lookupInstancesByFilter(): Found the following matching targets {}'.format(curr))
 
     except Exception as e:
       msg = 'lookupInstancesByFilter() Exception encountered during instance filtering '
