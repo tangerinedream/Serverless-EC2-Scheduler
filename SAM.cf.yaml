@@ -8,7 +8,7 @@ Resources:
       FunctionName: scheduler-workloadProxyNEW
       Runtime: python3.6
       Handler: WorkloadProxy.lambda_handler
-      Timeout: 10
+      Timeout: 30
       AutoPublishAlias: DEV
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/SchedulerLambdaRole
       CodeUri: scheduler-workloadproxy.zip
