@@ -1,6 +1,7 @@
 import boto3
 import json
 import re
+import datetime
 
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key, Attr
@@ -15,6 +16,10 @@ class DataServices(object):
   WORKLOAD_SPEC_TABLE_NAME = 'WorkloadSpecification'
   WORKLOAD_SPEC_PARTITION_KEY = 'SpecName'
   WORKLOAD_REGION= 'WorkloadRegion'
+
+  WORKLOAD_STATE_TABLE='WorkloadState'
+  WORKLOAD_STATE_TABLE_PARTITION_KEY = 'Workload'
+  WORKLOAD_STATE_UNMANAGED='Unmanaged'
 
   TIER_SPEC_TABLE_NAME = 'TierSpecification'
   TIER_SPEC_PARTITION_KEY = 'SpecName'
@@ -45,7 +50,8 @@ class DataServices(object):
     self.dynDBC = self.makeDynamoDBConnection();
 
     self.dynDBR = self.makeDynamoDBResource();
-    self.dynDBDeserializer = boto3.dynamodb.types.TypeDeserializer()
+    self.WorkloadStateTable = self.dynDBR.Table( DataServices.WORKLOAD_STATE_TABLE );
+    self.dynDBDeserializer = boto3.dynamodb.types.TypeDeserializer();
 
     self.tierSpecTable = self.dynDBR.Table(DataServices.TIER_SPEC_TABLE_NAME)
 
@@ -340,6 +346,64 @@ class DataServices(object):
 
     jsonWrapper[WorkloadConstants.WORKLOAD_RESULTS_KEY]=workloadsResultList
     return (jsonWrapper);
+
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  # Workload State Methods
+  # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  @retriable( attempts=5, sleeptime=0, jitter=0 )
+  def ensureWorkloadStateItemExists( self, workloadName ):
+    currentTime = str( datetime.datetime.now().strftime( "%Y-%m-%d %H:%M:%S" ) )
+    # ConditionExpression will make sure that item is put into DDB only if Workload item doesn't exist
+    try:
+      response = self.WorkloadStateTable.put_item(
+        Item={
+          'Workload': workloadName,
+          'LastActionTime': str( currentTime ),
+          'LastActionType': DataServices.WORKLOAD_STATE_UNMANAGED,
+        },
+        ConditionExpression='attribute_not_exists({})'.format(DataServices.WORKLOAD_SPEC_PARTITION_KEY)
+      )
+
+    except Exception as e:
+      if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
+        msg = 'ensureWorkloadCurrentStateExists() Exception encountered during DDB put_item {} -->'.format(e)
+        logger.error( msg + str( e ) )
+        raise e
+
+
+  def updateWorkloadStateTable( self, action, workloadName, profileName=None ):
+
+    self.ensureWorkloadStateItemExists(workloadName);
+
+    currentTime = str( datetime.datetime.now().strftime( "%Y-%m-%d %H:%M:%S" ) )
+
+    if (action == WorkloadConstants.ACTION_START) and (profileName is not None):
+      UpdateExpressionAttr = 'SET Profile= :profile, LastActionTime= :currentTime, LastActionType= :actionType'
+      ExpressionAttributeValuesAttr = {
+        ':profile': profileName,
+        ':currentTime': currentTime,
+        ':actionType': action
+      }
+
+    else:
+      UpdateExpressionAttr = 'SET LastActionTime= :currentTime, LastActionType= :actionType'
+      ExpressionAttributeValuesAttr = {
+        ':currentTime': currentTime,
+        ':actionType': action,
+      }
+
+    try:
+      retry( self.WorkloadStateTable.update_item, attempts=5, sleeptime=0, jitter=0, kwargs={
+        "Key": {
+          'Workload': workloadName,
+        },
+        "UpdateExpression": UpdateExpressionAttr,
+        "ExpressionAttributeValues": ExpressionAttributeValuesAttr
+      } )
+    except Exception as e:
+      msg = 'updateWorkloadStateTable() Exception encountered during DDB update {} -->'.format(e)
+      logger.error( msg + str( e ) )
+
 
   # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   # Utility Methods

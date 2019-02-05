@@ -71,59 +71,80 @@ class WorkloadProxyDelegate( object ):
 
   ###
   def actionWorkload( self, requestDict, responseDict ):
+
     responseDict = self.listWorkload( requestDict, responseDict );
 
-    # There should only be one element in the list returned.
-    workloadSpec = responseDict[WorkloadConstants.RESULT_BODY][WorkloadConstants.WORKLOAD_RESULTS_KEY][0];
+    if(responseDict[WorkloadConstants.RESULT_STATUS_CODE] == WorkloadConstants.RESULT_CODE_OK_REQUEST):
 
-    if (DataServices.WORKLOAD_REGION not in workloadSpec):
-      self.logging.error( 'Workload does not have a {} in DynamoDB'.format( DataServices.WORKLOAD_REGION ) )
-      responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
-    else:
-      # Extract Region from Workload
-      region = workloadSpec[DataServices.WORKLOAD_REGION]
+      # There should only be one element in the list returned.
+      workloadSpec = responseDict[WorkloadConstants.RESULT_BODY][WorkloadConstants.WORKLOAD_RESULTS_KEY][0];
 
-      # Initialize common services with per request info
-      workloadName = requestDict[WorkloadConstants.REQUEST_PARAM_WORKLOAD]
-      self.dataServices.initializeRequestState();
-      self.notificationServices.initializeRequestState( self.snsTopic, workloadName, region );
-      self.computeServices.initializeRequestState( self.dataServices, self.notificationServices, region );
-
-      requestAction = requestDict[WorkloadConstants.REQUEST_DIRECTIVE]
-
-      instancesActioned = [];
-      try:
-
-        if (requestAction == WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP):
-          instancesActioned = self.computeServices.actionStopWorkload( workloadName, requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] );
-          responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
-
-        elif (requestAction == WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START):
-          # Was a Profile provided ?
-          if (WorkloadConstants.REQUEST_PARAM_PROFILE_NAME in requestDict):
-            instancesActioned = self.computeServices.actionStartWorkload(
-              workloadName,
-              requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN],
-              requestDict[WorkloadConstants.REQUEST_PARAM_PROFILE_NAME]
-            );
-          else:
-            instancesActioned = self.computeServices.actionStartWorkload(
-              workloadName,
-              requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN]
-            );
-          responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
-
-        else:
-          self.logger.warning('In actionWorkload(). Unknown directive provided {} - no action is being taken'.format(requestAction))
-          responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
-
-      except Exception as e:
-        self.logger.error('Exception on actionWorkload() for workload name {}, exception is: {}'.format(
-          workloadName,
-          e )
-        )
+      if (DataServices.WORKLOAD_REGION not in workloadSpec):
+        self.logging.error( 'Workload does not have a {} in DynamoDB'.format( DataServices.WORKLOAD_REGION ) )
         responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
+      else:
+        # Extract Region from Workload
+        region = workloadSpec[DataServices.WORKLOAD_REGION]
 
+        # Initialize common services with per request info
+        workloadName = requestDict[WorkloadConstants.REQUEST_PARAM_WORKLOAD]
+        self.dataServices.initializeRequestState();
+        self.notificationServices.initializeRequestState( self.snsTopic, workloadName, region );
+        self.computeServices.initializeRequestState( self.dataServices, self.notificationServices, region );
 
-      responseDict[WorkloadConstants.RESULT_BODY] = {"InstancesActioned": instancesActioned}
+        requestAction = requestDict[WorkloadConstants.REQUEST_DIRECTIVE]
+
+        instancesActioned = [];
+        try:
+
+          # TODO: If Start or Stop, checkworkload state table to ensure workload is in valid state to execute operation
+
+          if (requestAction == WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP):
+            instancesActioned = self.computeServices.actionStopWorkload( workloadName, requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] );
+            if( requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] == False):
+              self.dataServices.updateWorkloadStateTable(
+                WorkloadConstants.ACTION_STOP,
+                workloadName
+              )
+            responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
+
+          elif (requestAction == WorkloadConstants.REQUEST_DIRECTIVE_ACTION_START):
+            # Was a Profile provided ?
+            profileName=None
+            if (WorkloadConstants.REQUEST_PARAM_PROFILE_NAME in requestDict):
+              profileName = requestDict[WorkloadConstants.REQUEST_PARAM_PROFILE_NAME]
+              instancesActioned = self.computeServices.actionStartWorkload(
+                workloadName,
+                requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN],
+                profileName
+              );
+            else:
+              instancesActioned = self.computeServices.actionStartWorkload(
+                workloadName,
+                requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN]
+              );
+
+            if( requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] == False):
+              self.dataServices.updateWorkloadStateTable(
+                WorkloadConstants.ACTION_START,
+                workloadName,
+                profileName
+              )
+
+            # TODO: If no dryrun flag - update the workload state table to reflect updates state
+            responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
+
+          else:
+            self.logger.warning('In actionWorkload(). Unknown directive provided {} - no action is being taken'.format(requestAction))
+            responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
+
+        except Exception as e:
+          self.logger.error('Exception on actionWorkload() for workload name {}, exception is: {}'.format(
+            workloadName,
+            e )
+          )
+          responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_BAD_REQUEST
+        responseDict[WorkloadConstants.RESULT_BODY] = {"InstancesActioned": instancesActioned}
+
       return (responseDict)
+
