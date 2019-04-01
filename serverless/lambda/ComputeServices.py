@@ -96,9 +96,6 @@ class ComputeServices(object):
     for currTierName in sequencedTiersList:
       self.logger.info('Starting Tier: {}'.format(currTierName));
 
-      # For each tier, get the Instance State of each instance
-      #tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
-
       totalInstancesInTier = self.getTierInstances( workloadSpec, currTierName )
 
       # Scale all Instances in the tier if Profile Provided
@@ -153,14 +150,6 @@ class ComputeServices(object):
     # Iterate over the Sequenced Tiers of the workload to stop the running instances
     for currTierName in sequencedTiersList:
       self.logger.info('Stopping Tier: {}'.format(currTierName));
-
-      # For each tier, get the Instance State of each instance
-      # tierInstancesByInstanceStateDict = self.getTierInstancesByInstanceState(workloadSpec, currTierName)
-
-      # Grab the Running List within the Map
-      #instancesToStop =  tierInstancesByInstanceStateDict[self.BOTO3_INSTANCE_STATE_RUNNING]
-
-
 
       # Get the instances, and pull out those that need to be stopped
       totalTierInstanceList = []

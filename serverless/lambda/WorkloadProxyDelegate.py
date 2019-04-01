@@ -97,10 +97,9 @@ class WorkloadProxyDelegate( object ):
         instancesActioned = [];
         try:
 
-          # TODO: If Start or Stop, checkworkload state table to ensure workload is in valid state to execute operation
-
           if (requestAction == WorkloadConstants.REQUEST_DIRECTIVE_ACTION_STOP):
             instancesActioned = self.computeServices.actionStopWorkload( workloadName, requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] );
+            # Update State when dryrun flag not in use
             if( requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] == False):
               self.dataServices.updateWorkloadStateTable(
                 WorkloadConstants.ACTION_STOP,
@@ -124,6 +123,7 @@ class WorkloadProxyDelegate( object ):
                 requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN]
               );
 
+            # Update State when dryrun flag not in use
             if( requestDict[WorkloadConstants.REQUEST_PARAM_DRYRUN] == False):
               self.dataServices.updateWorkloadStateTable(
                 WorkloadConstants.ACTION_START,
@@ -131,7 +131,6 @@ class WorkloadProxyDelegate( object ):
                 profileName
               )
 
-            # TODO: If no dryrun flag - update the workload state table to reflect updates state
             responseDict[WorkloadConstants.RESULT_STATUS_CODE] = WorkloadConstants.RESULT_CODE_OK_REQUEST
 
           else:
