@@ -1,0 +1,1 @@
+aws cloudformation create-stack --stack-name PersistenceTest --template-body file://CFStackRegionPersistentResources.yaml --no-disable-rollback --capabilities="CAPABILITY_IAM" --parameters ParameterKey=CodePipelineArtifactsBucketNameParam,ParameterValue=serverless-ec2-scheduler-artifact-bucket ParameterKey=SNSTopicParam,ParameterValue=ServerlessEC2Scheduler 

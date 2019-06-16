@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Stack creates Persistent Resources for Serverless-EC2-Scheduler.
+
+
+Parameters:
+  CodePipelineArtifactsBucketNameParam:
+    Description: Name of bucket to use for temp artifacts usage.
+    Type: String
+    Default: serverless-ec2-scheduler-artifact-bucket
+
+  SNSTopicParam:
+    Description: Name of the SNS Topic the serverless EC2 scheduler will publish on
+    Type: String
+    Default: ServerlessEC2Scheduler
+
+Outputs:
+  CodePipelineArtifactsBucketNameOutput:
+    Description: The Bucket Name ARN for Artifacts
+    Value:
+      !GetAtt CodePipelineArtifactBucket.Arn
+#    Export:
+#      Name:
+  SchedulerSNSTopicNameOutput:
+    Description: The SNS Topic Name
+    Value:
+      !GetAtt SchedulerSNSTopic.TopicName
+#    Export:
+#      Name:
+
+
+
+
+Resources:
+
+  # ------------------------------------------
+  # DynamoDB Tables
+  # ------------------------------------------
+  SchedulerDynamoDBWorkloadTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: WorkloadSpecification
+      AttributeDefinitions:
+        - AttributeName: SpecName
+          AttributeType: S
+      KeySchema:
+        - AttributeName: SpecName
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      Tags:
+        - Key : ApplicationName
+          Value : Serverless-EC2-Scheduler
+
+  SchedulerDynamoDBTierTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: TierSpecification
+      AttributeDefinitions:
+        - AttributeName: SpecName
+          AttributeType: S
+        - AttributeName: TierTagValue
+          AttributeType: S
+      KeySchema:
+        - AttributeName: SpecName
+          KeyType: HASH
+        - AttributeName: TierTagValue
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      Tags:
+        - Key : ApplicationName
+          Value : Serverless-EC2-Scheduler
+
+  SchedulerDynamoDBWorkloadStateTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: WorkloadState
+      AttributeDefinitions:
+        - AttributeName: Workload
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Workload
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      Tags:
+        - Key : ApplicationName
+          Value : Serverless-EC2-Scheduler
+
+  # ------------------------------------------
+  # SNS Topic
+  # ------------------------------------------
+  SchedulerSNSTopic:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      DisplayName: SNS Topic
+      TopicName: !Ref SNSTopicParam
+
+
+  # ------------------------------------------
+  # CodePipeline's S3 bucket for use
+  # ------------------------------------------
+  CodePipelineArtifactBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref CodePipelineArtifactsBucketNameParam
+
+
+  CodePipelineArtifactBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref CodePipelineArtifactBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: DenyUnEncryptedObjectUploads
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:PutObject'
+            Resource: !Join
+              - ''
+              - - !GetAtt
+                  - CodePipelineArtifactBucket
+                  - Arn
+                - /*
+            Condition:
+              StringNotEquals:
+                's3:x-amz-server-side-encryption': 'aws:kms'
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: !Join
+              - ''
+              - - !GetAtt
+                  - CodePipelineArtifactBucket
+                  - Arn
+                - /*
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+

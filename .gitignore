@@ -1,3 +1,14 @@
+.idea
+pip-selfcheck.json
+
+bin/
+client/
+serverless/
+
+Provisioning/ServerlessSetupCF.yaml
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -74,6 +85,7 @@ target/
 
 # pyenv
 .python-version
+pyvenv.cfg
 
 # celery beat schedule file
 celerybeat-schedule
