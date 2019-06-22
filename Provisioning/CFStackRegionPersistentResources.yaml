@@ -4,34 +4,91 @@ Description: >
 
 
 Parameters:
-  CodePipelineArtifactsBucketNameParam:
-    Description: Name of bucket to use for temp artifacts usage.
+  CodePipelineBucketName:
+    Description: Name of bucket to use for temp artifacts usage.  Region will be appended.
     Type: String
-    Default: serverless-ec2-scheduler-artifact-bucket
+    Default: serverless-ec2-scheduler-codepipeline-bucket
 
-  SNSTopicParam:
-    Description: Name of the SNS Topic the serverless EC2 scheduler will publish on
+  SNSTopicName:
+    Description: Name of the SNS Topic the serverless EC2 scheduler will publish on.  Region will be appended.
     Type: String
     Default: ServerlessEC2Scheduler
 
 Outputs:
-  CodePipelineArtifactsBucketNameOutput:
+  CodePipelineArtifactsBucketName:
     Description: The Bucket Name ARN for Artifacts
-    Value:
-      !GetAtt CodePipelineArtifactBucket.Arn
+    Value: !Ref CodePipelineArtifactBucket
 #    Export:
-#      Name:
-  SchedulerSNSTopicNameOutput:
+#      Name: !Ref CodePipelineArtifactBucket
+  
+  SchedulerSNSTopicName:
     Description: The SNS Topic Name
-    Value:
-      !GetAtt SchedulerSNSTopic.TopicName
+    Value: !GetAtt SchedulerSNSTopic.TopicName
 #    Export:
-#      Name:
-
+#      Name: !GetAtt SchedulerSNSTopic.TopicName
 
 
 
 Resources:
+
+  # ------------------------------------------
+  # SNS Topic
+  # ------------------------------------------
+  SchedulerSNSTopic:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      DisplayName: SNS Topic
+      TopicName: !Join
+      - '-'
+      - - !Ref SNSTopicName
+        - !Sub '${AWS::Region}'
+
+
+  # ------------------------------------------
+  # CodePipeline's S3 bucket for use
+  # ------------------------------------------
+  CodePipelineArtifactBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Join
+        - '-'
+        - - !Ref CodePipelineBucketName
+          - !Sub '${AWS::Region}'
+
+
+  CodePipelineArtifactBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref CodePipelineArtifactBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: DenyUnEncryptedObjectUploads
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:PutObject'
+            Resource: !Join
+              - ''
+              - - !GetAtt
+                  - CodePipelineArtifactBucket
+                  - Arn
+                - /*
+            Condition:
+              StringNotEquals:
+                's3:x-amz-server-side-encryption': 'aws:kms'
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: !Join
+              - ''
+              - - !GetAtt
+                  - CodePipelineArtifactBucket
+                  - Arn
+                - /*
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
 
   # ------------------------------------------
   # DynamoDB Tables
@@ -90,57 +147,3 @@ Resources:
       Tags:
         - Key : ApplicationName
           Value : Serverless-EC2-Scheduler
-
-  # ------------------------------------------
-  # SNS Topic
-  # ------------------------------------------
-  SchedulerSNSTopic:
-    Type: "AWS::SNS::Topic"
-    Properties:
-      DisplayName: SNS Topic
-      TopicName: !Ref SNSTopicParam
-
-
-  # ------------------------------------------
-  # CodePipeline's S3 bucket for use
-  # ------------------------------------------
-  CodePipelineArtifactBucket:
-    Type: 'AWS::S3::Bucket'
-    Properties:
-      BucketName: !Ref CodePipelineArtifactsBucketNameParam
-
-
-  CodePipelineArtifactBucketPolicy:
-    Type: 'AWS::S3::BucketPolicy'
-    Properties:
-      Bucket: !Ref CodePipelineArtifactBucket
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Sid: DenyUnEncryptedObjectUploads
-            Effect: Deny
-            Principal: '*'
-            Action: 's3:PutObject'
-            Resource: !Join
-              - ''
-              - - !GetAtt
-                  - CodePipelineArtifactBucket
-                  - Arn
-                - /*
-            Condition:
-              StringNotEquals:
-                's3:x-amz-server-side-encryption': 'aws:kms'
-          - Sid: DenyInsecureConnections
-            Effect: Deny
-            Principal: '*'
-            Action: 's3:*'
-            Resource: !Join
-              - ''
-              - - !GetAtt
-                  - CodePipelineArtifactBucket
-                  - Arn
-                - /*
-            Condition:
-              Bool:
-                'aws:SecureTransport': false
-

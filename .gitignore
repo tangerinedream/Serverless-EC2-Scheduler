@@ -5,6 +5,9 @@ bin/
 client/
 serverless/
 
+# Contains GitHub Personal OATH token
+CFStackForCodePipeline.bash
+
 Provisioning/ServerlessSetupCF.yaml
 
 
