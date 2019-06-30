@@ -123,4 +123,14 @@ Resources:
               - 's3:*'
               - 'sns:*'
               - 'cloudformation:*'
-            Resource: '*'
+            Resource:
+              '*'
+          - Effect: Allow
+            Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+              - 'logs:DescribeLogStreams'
+            Resource:
+              !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*
+              # 'arn:aws:logs:*:*:*'

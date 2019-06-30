@@ -17,9 +17,9 @@ Parameters:
   GitHubOwner:
     Type: String
 
-#  GitHubOAuthToken:
-#    Type: String
-#    NoEcho: true
+  CodePipelineOAuthToken:
+    Type: String
+    NoEcho: true
     
   GitHubSecret:
     Type: String
@@ -146,8 +146,7 @@ Resources:
                 Owner: !Ref GitHubOwner
                 Repo: !Ref RepositoryName
                 Branch: !Ref BranchName
-                OAuthToken: '****'
-                # OAuthToken: !Ref GitHubOAuthToken
+                OAuthToken: !Ref CodePipelineOAuthToken
                 PollForSourceChanges: false
 
               OutputArtifacts:
