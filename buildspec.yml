@@ -20,7 +20,8 @@ phases:
       - echo " ===== Entered the [install] phase ====="
       # install dependencies for scheduler
       - echo "+++++ apt-get updating ++++++"
-      - sudo apt-get update -y
+      #- sudo apt-get update -y
+      - apt-get update -y  # taking out sudo per Docker 2.0 image
 
       - echo "+++++ installing python3-pip ++++++"
       - sudo apt-get install -y python3-pip
