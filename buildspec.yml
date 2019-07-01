@@ -1,0 +1,127 @@
+version: 0.2
+
+#run-as: Linux-user-name  # optional.  Otherwise runs as root
+
+#env:
+#  variables:
+#    key: "value"
+#    key: "value"
+#  parameter-store:
+#    key: "value"
+#    key: "value"
+
+phases:
+  install:
+#    run-as: Linux-user-name
+    commands:
+      - echo " ===== Entered the [install] phase ====="
+      # install dependencies for scheduler
+      - echo "+++++ apt-get updating ++++++"
+      - sudo apt-get update -y
+
+      - echo "+++++ installing python3-pip ++++++"
+      - sudo apt-get install -y python3-pip
+
+      - echo "+++++ installing zip ++++++"
+      - sudo apt-get install -y zip
+
+#    finally:
+#      - command
+#      - command
+  pre_build:
+#    run-as: Linux-user-name
+    commands:
+      - echo " ===== Entered the [pre_build] phase ====="
+      - echo "Code source build directory is $CODEBUILD_SRC_DIR"
+      - ls -l $CODEBUILD_SRC_DIR
+
+      - echo "+++++ Creating build directory buildDir +++++"
+      - mkdir buildDir
+
+
+      - echo "+++++ Installing yaml module +++++"
+      - sudo pip3 install pyyaml -t buildDir
+
+      - echo "+++++ Installing redo module in buildDir +++++"
+      - sudo pip3 install redo -t buildDir
+
+#      seems unable to retry api calls natively
+#      - echo "+++++ Installing retry module in buildDir +++++"
+#      - sudo pip3 install retry -t buildDir
+
+      - echo "+++++ Staging source python files to build directory +++++"
+      - cp serverless/lambda/*.py buildDir
+
+      - echo "+++++ Staging SAM.cf.yaml to build directory +++++"
+      - cp SAM.cf.yaml buildDir
+
+      - echo "+++++ Contents of build directory +++++"
+      - ls -l buildDir
+
+#      - echo Copying appspec.yml files to build directory
+#      - mv appspec.yaml buildDir
+
+
+#    finally:
+#      - command
+#      - command
+  build:
+#    run-as: Linux-user-name
+    commands:
+#      - echo "===== Entered the [build] phase ====="
+#      - echo "+++++ ziping scheduler-workloadproxy.zip +++++"
+#      - cd serverless/lambda
+#      # Good zip reference: https://www.wpoven.com/tutorials/server/how-to-zip-or-unzip-files-and-folders-using-command-line-on-ubuntu-server
+#      # zip -r command does not work how you think it does
+#      - zip -r ../../buildDir/scheduler-workloadproxy.zip .
+
+      - echo "===== Entered the [build] phase ====="
+      - echo "+++++ creating zip file scheduler-workloadproxy.zip +++++"
+      - cd $CODEBUILD_SRC_DIR/buildDir
+      - zip -r ./scheduler-workloadproxy.zip .  # zipping may not even be necessary, just point SAM.cf.yaml codeUri to buildDir
+#      - zip -r ./scheduler-workloads.zip .  # zipping may not even be necessary, just point SAM.cf.yaml codeUri to buildDir
+
+
+
+#    finally:
+#      - command
+#      - command
+  post_build:
+    commands:
+      - cd $CODEBUILD_SRC_DIR/buildDir
+      - echo "===== Entered the [post_build] phase ====="
+      - echo "+++++ Transforming SAM to CF +++++"
+      - aws cloudformation package --template-file SAM.cf.yaml --s3-bucket codepipeline-us-west-2-309887469609 --output-template-file packagedSAM.yaml --kms-key-id c16db0d1-f95d-4eed-8c22-64377daf0212
+
+
+#      - echo "+++++ Staging SAM.cf.yaml to build directory +++++"
+#      - cp SAM.cf.yaml buildDir
+      - echo "+++++ Deploying Scheduler-Workload-Stack +++++"
+      - aws cloudformation deploy --template-file packagedSAM.yaml --stack-name Scheduler-Workload-Stack --capabilities CAPABILITY_IAM
+#      - aws --debug cloudformation deploy --template-file packagedSAM.yaml --stack-name Scheduler-Workload-Stack --capabilities CAPABILITY_IAM
+
+#artifacts:
+#  files:
+#    - buildDir/packagedSAM.yaml
+#     - '**/*'
+#    - serverless/lambda/scheduler-workloadproxy.zip
+#    - appspec.yaml
+#  discard-paths: yes
+#  base-directory: buildDir
+#  secondary-artifacts:
+#    artifactIdentifier:
+#      files:
+#        - location
+#        - location
+#      discard-paths: yes
+#      base-directory: location
+#    artifactIdentifier:
+#      files:
+#        - location
+#        - location
+#      discard-paths: yes
+#      base-directory: location
+#cache:
+#  paths:
+#    - path
+#    - path
