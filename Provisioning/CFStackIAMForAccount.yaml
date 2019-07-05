@@ -134,3 +134,21 @@ Resources:
             Resource:
               !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*
               # 'arn:aws:logs:*:*:*'
+          # The below are required by the embedded/generated SAM Cloudformation Stack - Scheduler-Workload-Stack
+          - Effect: Allow
+            Action:
+              - 'lambda:*'
+            Resource:
+              - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:scheduler-*'
+          - Effect: Allow
+            Action:
+              - 'codedeploy:*'
+            Resource:
+              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:Scheduler-Workload-Stack*'
+              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:Scheduler-Workload-Stack*'
+              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:*'
+          - Effect: Allow
+            Action:
+              - 'apigateway:*'
+            Resource:
+              - !Sub 'arn:aws:apigateway:${AWS::Region}::*'
