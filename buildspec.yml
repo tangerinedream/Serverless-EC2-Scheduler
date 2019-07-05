@@ -20,14 +20,13 @@ phases:
       - echo " ===== Entered the [install] phase ====="
       # install dependencies for scheduler
       - echo "+++++ apt-get updating ++++++"
-      #- sudo apt-get update -y
       - apt-get update -y  # taking out sudo per Docker 2.0 image
 
       - echo "+++++ installing python3-pip ++++++"
-      - sudo apt-get install -y python3-pip
+      - apt-get install -y python3-pip    # taking out sudo per Docker 2.0 image
 
       - echo "+++++ installing zip ++++++"
-      - sudo apt-get install -y zip
+      - apt-get install -y zip      # taking out sudo per Docker 2.0 image
 
 #    finally:
 #      - command
@@ -44,10 +43,10 @@ phases:
 
 
       - echo "+++++ Installing yaml module +++++"
-      - sudo pip3 install pyyaml -t buildDir
+      - pip3 install pyyaml -t buildDir  # taking out sudo per Docker 2.0 image
 
       - echo "+++++ Installing redo module in buildDir +++++"
-      - sudo pip3 install redo -t buildDir
+      - pip3 install redo -t buildDir    # taking out sudo per Docker 2.0 image
 
 #      seems unable to retry api calls natively
 #      - echo "+++++ Installing retry module in buildDir +++++"
