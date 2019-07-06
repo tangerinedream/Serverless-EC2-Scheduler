@@ -152,3 +152,15 @@ Resources:
               - 'apigateway:*'
             Resource:
               - !Sub 'arn:aws:apigateway:${AWS::Region}::*'
+          - Effect: Allow
+            Action:
+              - 'iam:PassRole'
+              - 'iam:CreateRole'
+              - 'iam:DeleteRole'
+              - 'iam:PassRole'
+              - 'iam:GetRole'
+              - 'iam:AttachRolePolicy'
+              - 'iam:DetachRolePolicy'
+            Resource:
+            - !Sub 'arn:aws:iam::${AWS::AccountId}:role/Scheduler-Workload-Stack*'
+            - !Sub 'arn:aws:iam::${AWS::AccountId}:role/SchedulerLambdaRole'
