@@ -112,7 +112,7 @@ Resources:
         # The secret you want to use for the webhook AWS CloudFormation creates.
         #   What you put here, would then be put on GitHub in the Secret, so save a copy.  You choose it here,
         #   copy it to GitHub repo afterwards, along with webhook url
-        SecretToken: !Ref GitHubSecret
+#        SecretToken: !Ref GitHubSecret
       Filters:
         - JsonPath: $.ref
           MatchEquals: 'refs/heads/{Branch}'
