@@ -100,7 +100,7 @@ phases:
 #      - echo "+++++ Staging SAM.cf.yaml to build directory +++++"
 #      - cp SAM.cf.yaml buildDir
       - echo "+++++ Deploying Scheduler-Workload-Stack +++++"
-      - aws cloudformation deploy --template-file packagedSAM.yaml --stack-name Scheduler-Workload-Stack --capabilities CAPABILITY_IAM
+      - aws cloudformation deploy --region $AWS_DEFAULT_REGION --template-file packagedSAM.yaml --stack-name Scheduler-Workload-Stack --capabilities CAPABILITY_IAM
 #      - aws --debug cloudformation deploy --template-file packagedSAM.yaml --stack-name Scheduler-Workload-Stack --capabilities CAPABILITY_IAM
 
 #artifacts:
