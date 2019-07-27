@@ -60,15 +60,24 @@ Resources:
           Description: >
             Builds and Deploys the APIG and Lambda Function when GitHub repo is updated.
             SAM is used, which is why these resources aren't declared in this CloudFormation
+
           ServiceRole: !Ref CodeBuildServiceRoleArn
+
+          EnvironmentVariables:
+          - Name: CODEBUILD_S3_BUCKET
+            Type: PLAINTEXT
+            Value: !Ref CodePipelineBucketName
+
           Environment:
               ComputeType: BUILD_GENERAL1_SMALL
               Image: aws/codebuild/standard:2.0
               Type: LINUX_CONTAINER
+
           Artifacts:
               Type: NO_ARTIFACTS
               # Type: CODEPIPELINE
               # CodePipeline will manage artifacts
+
           TimeoutInMinutes: 10 # default is 60
 
           # For the rest of these, see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-source.html
@@ -81,7 +90,6 @@ Resources:
               Type: OAUTH
               # CodeBuild requires prior GitHub auth to CodeBuild via Mgt Console.
               # See: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-source.html#cfn-codebuild-project-source-location
-
 
           LogsConfig:
             CloudWatchLogs:

@@ -94,8 +94,8 @@ phases:
       - cd $CODEBUILD_SRC_DIR/buildDir
       - echo "===== Entered the [post_build] phase ====="
       - echo "+++++ Transforming SAM to CF +++++"
-      - aws cloudformation package --template-file SAM.cf.yaml --s3-bucket codepipeline-us-west-2-309887469609 --output-template-file packagedSAM.yaml --kms-key-id c16db0d1-f95d-4eed-8c22-64377daf0212
-
+ #     - aws cloudformation package --template-file SAM.cf.yaml --s3-bucket codepipeline-us-west-2-309887469609 --output-template-file packagedSAM.yaml --kms-key-id c16db0d1-f95d-4eed-8c22-64377daf0212
+      - aws cloudformation package --template-file SAM.cf.yaml --s3-bucket $CODEBUILD_S3_BUCKET --output-template-file packagedSAM.yaml --kms-key-id  $CODEBUILD_KMS_KEY_ID
 
 #      - echo "+++++ Staging SAM.cf.yaml to build directory +++++"
 #      - cp SAM.cf.yaml buildDir
