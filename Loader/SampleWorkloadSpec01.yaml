@@ -1,3 +1,8 @@
+# This is a Workload Specification file, consumed by the Loader.
+# The Loader will use this yaml content to populate (create or update) DynamoDB with the specifications of your Workload.
+# The CloudFormation stack CFStackForCodePipeline must have been successfully deployed as a precursor to running the loader,
+#   as that creates the DynamoDB Tables into which this content is loaded.
+
 workloads:
   table: WorkloadSpecification
   workload:
