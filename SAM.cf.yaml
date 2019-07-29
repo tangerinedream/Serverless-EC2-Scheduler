@@ -14,7 +14,7 @@ Resources:
       CodeUri: scheduler-workloadproxy.zip
       Environment:
         Variables:
-          DYNAMODB_REGION: ${AWS::Region}
+          DYNAMODB_REGION: !Ref 'AWS::Region'
           LOG_LEVEL: logging.DEBUG
           SNS_TOPIC: SchedulerSNSTopic
       DeploymentPreference:
