@@ -321,6 +321,7 @@ Resources:
 
           - Effect: Allow
             Action:
+              - 'iam:PassRole'   # Permission to Assign Roles below
               - 'iam:CreateRole'
               - 'iam:DeleteRole'
               - 'iam:GetRole'
