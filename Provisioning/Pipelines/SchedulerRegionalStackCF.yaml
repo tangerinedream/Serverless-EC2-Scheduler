@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  Stack creates Persistent Resources for Serverless Scheduler.
+  Stack creates persistent regional Resources for the Serverless Scheduler.
 
 
 Parameters:
@@ -139,7 +139,7 @@ Resources:
         WriteCapacityUnits: 1
       Tags:
         - Key : ApplicationName
-          Value : Serverless-EC2-Scheduler
+          Value : Serverless-Scheduler
 
   SchedulerDynamoDBTierTable:
     Type: "AWS::DynamoDB::Table"
@@ -160,7 +160,7 @@ Resources:
         WriteCapacityUnits: 1
       Tags:
         - Key : ApplicationName
-          Value : Serverless-EC2-Scheduler
+          Value : Serverless-Scheduler
 
   SchedulerDynamoDBWorkloadStateTable:
     Type: "AWS::DynamoDB::Table"
@@ -177,7 +177,7 @@ Resources:
         WriteCapacityUnits: 1
       Tags:
         - Key : ApplicationName
-          Value : Serverless-EC2-Scheduler
+          Value : Serverless-Scheduler
 
 
   # ------------------------------------------
@@ -289,7 +289,7 @@ Resources:
             Resource:
               !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*'
 
-          # The below are required by the embedded/generated SAM Cloudformation Stack - ServerlessSchedulerEndpointStack
+          # The below are required by the embedded/generated SAM Cloudformation Stack - SchedulerEndpointStack
           - Effect: Allow
             Action:
               - 'lambda:*'
@@ -300,8 +300,8 @@ Resources:
             Action:
               - 'codedeploy:*'
             Resource:
-              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:ServerlessSchedulerEndpointStack*'
-              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:ServerlessSchedulerEndpointStack*'
+              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:SchedulerEndpointStack*'
+              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:SchedulerEndpointStack*'
               - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:*'
 
 
@@ -327,7 +327,7 @@ Resources:
               - 'iam:AttachRolePolicy'
               - 'iam:DetachRolePolicy'
             Resource:
-              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/ServerlessSchedulerEndpointStack*'
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/SchedulerEndpointStack*'
 
             
 #            Resource: !Join
@@ -337,7 +337,7 @@ Resources:
 #                - !Ref LambdaRole
 #TODO: Should this be the Short Name instead?
 
-#              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/ServerlessSchedulerEndpointStack*'
+#              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/SchedulerEndpointStack*'
 #            Condition:
 #              StringEquals:
 #                'iam:PassedToService': 'codebuild.amazonaws.com'
