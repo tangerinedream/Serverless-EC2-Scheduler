@@ -55,7 +55,7 @@ Resources:
               - !Ref PathNamespace
               - '/'
       Policies:
-        - PolicyName: ServerlessEC2SchedulerCodePipelineServicePolicy
+        - PolicyName: !Sub 'ServerlessEC2SchedulerCodePipelineServicePolicy-${AWS::Region}'
           PolicyDocument:
             Version: 2012-10-17
             Statement:
@@ -67,6 +67,7 @@ Resources:
                   - 'codedeploy:GetDeploymentConfig'
                   - 'codedeploy:RegisterApplicationRevision'
                 Resource: '*'
+
               - Effect: Allow
                 Action:
                   - 'codebuild:BatchGetBuilds'
@@ -78,15 +79,20 @@ Resources:
                   - 'lambda:InvokeFunction'
                   - 'lambda:ListFunctions'
                 Resource: '*'
+
               - Effect: Allow
                 Action:
                   - 'iam:PassRole'
-#                Resource: '*'
                 Resource: !Join
                   - ''
                   - - !Sub 'arn:aws:iam::${AWS::AccountId}:role/'
                     - !Ref PathNamespace
                     - /*
+                Condition:
+                  StringEquals:
+                    - iam:PassedToService
+                    - 'codepipeline.amazonaws.com'
+
               - Effect: Allow
                 Action:
                   - 'cloudwatch:*'
@@ -113,18 +119,21 @@ Resources:
           - !Ref PathNamespace
           - '/'
       Policies:
-      - PolicyName: ServerlessEC2SchedulerCodeBuildServicePolicy
+      - PolicyName: !Sub 'ServerlessEC2SchedulerCodeBuildServicePolicy-${AWS::Region}'
         PolicyDocument:
           Version: 2012-10-17
           Statement:
+
           - Effect: Allow
             Action:
+ # TODO: Change Actions to Least Privilege
               - 'cloudwatch:*'
               - 's3:*'
               - 'sns:*'
               - 'cloudformation:*'
             Resource:
               '*'
+
           - Effect: Allow
             Action:
               - 'logs:CreateLogGroup'
@@ -132,14 +141,15 @@ Resources:
               - 'logs:PutLogEvents'
               - 'logs:DescribeLogStreams'
             Resource:
-              !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*
-              # 'arn:aws:logs:*:*:*'
+              !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*'
+
           # The below are required by the embedded/generated SAM Cloudformation Stack - Scheduler-Workload-Stack
           - Effect: Allow
             Action:
               - 'lambda:*'
             Resource:
               - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:scheduler-*'
+
           - Effect: Allow
             Action:
               - 'codedeploy:*'
@@ -147,20 +157,25 @@ Resources:
               - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:Scheduler-Workload-Stack*'
               - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:Scheduler-Workload-Stack*'
               - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:*'
+
           - Effect: Allow
             Action:
               - 'apigateway:*'
             Resource:
               - !Sub 'arn:aws:apigateway:${AWS::Region}::*'
+              
           - Effect: Allow
             Action:
               - 'iam:PassRole'
               - 'iam:CreateRole'
               - 'iam:DeleteRole'
-              - 'iam:PassRole'
               - 'iam:GetRole'
               - 'iam:AttachRolePolicy'
               - 'iam:DetachRolePolicy'
             Resource:
             - !Sub 'arn:aws:iam::${AWS::AccountId}:role/Scheduler-Workload-Stack*'
             - !Sub 'arn:aws:iam::${AWS::AccountId}:role/SchedulerLambdaRole'
+            Condition:
+              StringEquals:
+              - iam:PassedToService
+              - 'codebuild.amazonaws.com'

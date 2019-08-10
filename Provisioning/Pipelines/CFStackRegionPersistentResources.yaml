@@ -1,33 +1,64 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  Stack creates Persistent Resources for Serverless-EC2-Scheduler.
+  Stack creates Persistent Resources for Serverless Scheduler.
 
 
 Parameters:
   CodePipelineBucketName:
     Description: Name of bucket to use for temp artifacts usage.  Region will be appended.
     Type: String
-    Default: serverless-ec2-scheduler-codepipeline-bucket
+    Default: serverless-scheduler-codepipeline-bucket
 
   SNSTopicName:
     Description: Name of the SNS Topic the serverless EC2 scheduler will publish on.  Region will be appended.
     Type: String
-    Default: ServerlessEC2Scheduler
+    Default: ServerlessScheduler
+
+
+  RolePathNamespace:
+    Description: The namespacing within the role arn
+    Type: String
+    Default: serverless-scheduler
+
 
 Outputs:
   CodePipelineArtifactsBucketName:
     Description: The Bucket Name ARN for Artifacts
     Value: !Ref CodePipelineArtifactBucket
-#    Export:
-#      Name: !Ref CodePipelineArtifactBucket
+
   
   SchedulerSNSTopicName:
     Description: The SNS Topic Name
     Value: !GetAtt SchedulerSNSTopic.TopicName
-#    Export:
-#      Name: !GetAtt SchedulerSNSTopic.TopicName
 
 
+  CodePipelineRole:
+    Description: The role under which the CodePipeline for Serverless EC2 Scheduler is executed
+    Value:
+      !GetAtt CodePipelineRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CodePipelineRole'
+
+  CodeBuildRole:
+    Description: The role under which the CodeBuild for Serverless EC2 Scheduler is built
+    Value:
+      !GetAtt CodeBuildRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CodeBuildRole'
+
+  RolePathNamespace:
+    Description: The namespacing within the role name
+    Value:
+      !Ref RolePathNamespace
+    Export:
+      Name: !Sub '${AWS::StackName}-RolePathNamespace'
+
+  LambdaRole:
+    Description: The role under which the Lambda will run
+    Value:
+      !GetAtt LambdaRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaRole'
 
 Resources:
 
@@ -147,3 +178,237 @@ Resources:
       Tags:
         - Key : ApplicationName
           Value : Serverless-EC2-Scheduler
+
+
+  # ------------------------------------------
+  # Service Roles
+  #   See: https://docs.aws.amazon.com/codepipeline/latest/userguide/tutorials-cloudformation-github.html
+  # ------------------------------------------
+  CodePipelineRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: !Join
+            - ''
+            - - '/'
+              - !Ref RolePathNamespace
+              - '/'
+      Policies:
+        - PolicyName: !Sub 'SchedulerCodePipelineServicePolicy-${AWS::Region}'
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'codedeploy:CreateDeployment'
+                  - 'codedeploy:GetApplicationRevision'
+                  - 'codedeploy:GetDeployment'
+                  - 'codedeploy:GetDeploymentConfig'
+                  - 'codedeploy:RegisterApplicationRevision'
+                Resource: '*'
+
+              - Effect: Allow
+                Action:
+                  - 'codebuild:BatchGetBuilds'
+                  - 'codebuild:StartBuild'
+                Resource: '*'
+
+              - Effect: Allow
+                Action:
+                  - 'lambda:InvokeFunction'
+                  - 'lambda:ListFunctions'
+                Resource: '*'
+
+              - Effect: Allow
+                Action:
+                  - 'iam:PassRole'
+                Resource: !Join
+                  - ''
+                  - - !Sub 'arn:aws:iam::${AWS::AccountId}:role/'
+                    - !Ref RolePathNamespace
+                    - /*
+#                Condition:
+#                  StringEquals:
+#                    'iam:PassedToService': 'codepipeline.amazonaws.com'
+
+              - Effect: Allow
+                Action:
+                  - 'cloudwatch:*'
+                  - 's3:*'
+                  - 'sns:*'
+                  - 'cloudformation:*'
+                Resource: '*'
+
+  # ------------------------------------------
+  # CodeBuild Service Role
+  # ------------------------------------------
+  CodeBuildRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - codebuild.amazonaws.com
+          Action: 'sts:AssumeRole'
+      Path: !Join
+        - ''
+        - - '/'
+          - !Ref RolePathNamespace
+          - '/'
+      Policies:
+      - PolicyName: !Sub 'SchedulerCodeBuildServicePolicy-${AWS::Region}'
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+
+          - Effect: Allow
+            Action:  # TODO: Change Actions to Least Privilege
+              - 'cloudwatch:*'
+              - 's3:*'
+              - 'sns:*'
+              - 'cloudformation:*'
+            Resource:
+              '*'
+
+          - Effect: Allow
+            Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+              - 'logs:DescribeLogStreams'
+            Resource:
+              !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*'
+
+          # The below are required by the embedded/generated SAM Cloudformation Stack - ServerlessSchedulerEndpointStack
+          - Effect: Allow
+            Action:
+              - 'lambda:*'
+            Resource:
+              - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:scheduler-*'
+
+          - Effect: Allow
+            Action:
+              - 'codedeploy:*'
+            Resource:
+              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:application:ServerlessSchedulerEndpointStack*'
+              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentgroup:ServerlessSchedulerEndpointStack*'
+              - !Sub 'arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:deploymentconfig:*'
+
+
+          - Effect: Allow
+            Action:
+              - 'apigateway:*'
+            Resource:
+              - !Sub 'arn:aws:apigateway:${AWS::Region}::*'
+
+          - Effect: Allow
+            Action:
+              - 'iam:PassRole'   # Permission to Assign Roles below
+              - 'iam:CreateRole'
+              - 'iam:DeleteRole'
+              - 'iam:GetRole'
+              - 'iam:AttachRolePolicy'
+              - 'iam:DetachRolePolicy'
+            Resource:
+              Fn::GetAtt:
+                - LambdaRole
+                - Arn
+            
+#            Resource: !Join
+#              - '/'
+#              - - !Sub 'arn:aws:iam::${AWS::AccountId}:role'
+#                - !Ref RolePathNamespace
+#                - !Ref LambdaRole
+#TODO: Should this be the Short Name instead?
+
+#              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/ServerlessSchedulerEndpointStack*'
+#            Condition:
+#              StringEquals:
+#                'iam:PassedToService': 'codebuild.amazonaws.com'
+
+  # ------------------------------------------
+  # Lambda Service Role
+  # ------------------------------------------
+  LambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action: 'sts:AssumeRole'
+      Path: !Join
+        - ''
+        - - '/'
+          - !Ref RolePathNamespace
+          - '/'
+      Policies:
+      - PolicyName: !Sub 'SchedulerLambdaPolicy-${AWS::Region}'
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:BatchGetItem
+                - dynamodb:DescribeTable
+                - dynamodb:GetItem
+                - dynamodb:Scan
+                - dynamodb:Query
+                - dynamodb:ListTagsOfResource
+                - dynamodb:ListBackups
+                - dynamodb:ListGlobalTables
+              Resource:
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/WorkloadSpecification'
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/TierSpecification'
+                - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/WorkloadState'
+
+            - Effect: Allow
+              Action:
+                - dynamodb:ListTables   # This action requires resource '*'
+              Resource:
+                "*"
+
+            - Effect: Allow
+              Action:
+                - sns:publish
+                - sns:CreateTopic
+              Resource:
+                - !Ref SchedulerSNSTopic
+
+
+            - Effect: Allow
+              Action:
+                - ec2:DescribeInstances
+                - ec2:StartInstances
+                - ec2:ModifyInstanceAttribute
+                - ec2:DescribeVolumes
+                - ec2:StopInstances
+                - ec2:DescribeVolumeAttribute
+                - ec2:DescribeInstanceCreditSpecifications
+                - ec2:DescribeInstanceAttribute
+                - ec2:DescribeTags
+                - ec2:DescribeVpcs
+                - elasticloadbalancing:DescribeLoadBalancers
+              Resource: "*"
+
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource:
+                'arn:aws:logs:*:*:*'
+

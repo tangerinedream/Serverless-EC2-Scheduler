@@ -1,6 +1,12 @@
 Transform: 'AWS::Serverless-2016-10-31'
 AWSTemplateFormatVersion: "2010-09-09"
 Description: 'Sam template for Workload Lambda'
+
+Parameters:
+  RegionStackName:
+    Description: Name of stack which provisions the LambdaServiceRole
+    Type: String
+
 Resources:
   WorkloadProxy:
     Type: AWS::Serverless::Function
@@ -10,11 +16,20 @@ Resources:
       Handler: WorkloadProxy.lambda_handler
       Timeout: 30
       AutoPublishAlias: DEV
-      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/SchedulerLambdaRole
+
+      Role: !Join
+        - '/'
+        - - !Sub 'arn:aws:iam::${AWS::AccountId}:role'
+          - Fn::ImportValue:
+              '${RegionStackName}-RolePathNamespace'
+          - Fn::ImportValue:
+              '${RegionStackName}-LambdaServiceRole'
+          # !Sub 'arn:aws:iam::${AWS::AccountId}:role/${RegionStackName}-RolePathNamespace/${RegionStackName}-LambdaServiceRole'
+
       CodeUri: scheduler-workloadproxy.zip
       Environment:
         Variables:
-          DYNAMODB_REGION: !Ref 'AWS::Region'
+          DYNAMODB_REGION: !Sub '${AWS::Region}'
           LOG_LEVEL: logging.DEBUG
           SNS_TOPIC: SchedulerSNSTopic
       DeploymentPreference:
@@ -25,7 +40,7 @@ Resources:
           Properties:
             Path: /workloads/{workload+}
             Method: any
-#
+
 Outputs:
   WorkloadProxyAPI:
     Description: "API Gateway endpoint URL for Prod stage for Hello World function"

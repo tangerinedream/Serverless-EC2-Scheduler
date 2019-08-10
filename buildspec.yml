@@ -68,6 +68,8 @@ phases:
       - aws cloudformation package --template-file SAM.cf.yaml --s3-bucket $S3_CODEBUILD_BUCKET --output-template-file packagedSAM.yaml --kms-key-id  $CODEBUILD_KMS_KEY_ID
 
       - echo "+++++ Deploying Scheduler-Workload-Stack +++++"
-      - aws cloudformation deploy --region $AWS_DEFAULT_REGION --template-file packagedSAM.yaml --stack-name Scheduler-Workload-Stack --capabilities CAPABILITY_IAM
+#      - aws cloudformation deploy --region $AWS_DEFAULT_REGION --template-file packagedSAM.yaml --stack-name Scheduler-Workload-Stack --capabilities CAPABILITY_IAM
+#      - aws cloudformation deploy --region $AWS_DEFAULT_REGION --template-file packagedSAM.yaml --stack-name ServerlessSchedulerEndpoint --parameter-overrides RegionStackName=SchedulerRegionStack-$AWS_DEFAULT_REGION --capabilities CAPABILITY_IAM
+      - aws cloudformation deploy --region $AWS_DEFAULT_REGION --template-file packagedSAM.yaml --stack-name ServerlessSchedulerEndpointStack --parameter-overrides RegionStackName=$REGION_STACK_NAME --capabilities CAPABILITY_IAM
 
 
