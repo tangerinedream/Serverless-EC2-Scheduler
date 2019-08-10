@@ -314,15 +314,21 @@ Resources:
           - Effect: Allow
             Action:
               - 'iam:PassRole'   # Permission to Assign Roles below
+            Resource:
+              Fn::GetAtt:
+                - LambdaRole
+                - Arn
+
+          - Effect: Allow
+            Action:
               - 'iam:CreateRole'
               - 'iam:DeleteRole'
               - 'iam:GetRole'
               - 'iam:AttachRolePolicy'
               - 'iam:DetachRolePolicy'
             Resource:
-              Fn::GetAtt:
-                - LambdaRole
-                - Arn
+              - !Sub 'arn:aws:iam::${AWS::AccountId}:role/ServerlessSchedulerEndpointStack*'
+
             
 #            Resource: !Join
 #              - '/'
