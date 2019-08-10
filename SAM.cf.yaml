@@ -18,16 +18,16 @@ Resources:
       AutoPublishAlias: DEV
 
       Role:
-        - Fn::ImportValue:
-            '${RegionStackName}-LambdaRole'
+        Fn::ImportValue:
+          !Sub '${RegionStackName}-LambdaRole'
 
 #      Role: !Join
 #        - '/'
 #        - - !Sub 'arn:aws:iam::${AWS::AccountId}:role'
 #          - Fn::ImportValue:
-#              '${RegionStackName}-RolePathNamespace'
+#              !Sub '${RegionStackName}-RolePathNamespace'
 #          - Fn::ImportValue:
-#              '${RegionStackName}-LambdaRole'
+#              !Sub '${RegionStackName}-LambdaRole'
           # !Sub 'arn:aws:iam::${AWS::AccountId}:role/${RegionStackName}-RolePathNamespace/${RegionStackName}-LambdaRole'
 
       CodeUri: scheduler-workloadproxy.zip
