@@ -1,4 +1,6 @@
-#From download here: https://docs.aws.amazon.com/codepipeline/latest/userguide/tutorials-cloudformation-github.html
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Stack creates region specific GitHub Webhook, CodePipeline, and CodeBuild Project
 
 Parameters:
 
@@ -35,14 +37,6 @@ Parameters:
     Type: String
     Default: serverless-scheduler-codepipeline-bucket-ap-northeast-1
 
-#  CodePipelineServiceRoleArn:
-#      Description: Enter the ARN of the CodePipeline Role.
-#      Type: String
-
-#  CodeBuildServiceRoleArn:
-#      Description: Enter the ARN of the CodeBuild Role.
-#      Type: String
-
 
 Outputs:
   CodePipelineWebhook:
@@ -67,16 +61,6 @@ Resources:
           ServiceRole:
             Fn::ImportValue:
               !Sub '${RegionStackName}-CodeBuildRole'
-
-#          ServiceRole: !Ref CodeBuildServiceRoleArn
-#          ServiceRole:  !Join
-#            - '/'
-#            - - !Sub 'arn:aws:iam::${AWS::AccountId}:role'
-#              - Fn::ImportValue:
-#                  !Sub '${RegionStackName}-RolePathNamespace'
-#              - Fn::ImportValue:
-#                  !Sub '${RegionStackName}-CodeBuildRole'
-
 
 
           Environment:
@@ -158,15 +142,6 @@ Resources:
         Fn::ImportValue:
           !Sub '${RegionStackName}-CodePipelineRole'
 
-#      RoleArn: !Ref CodePipelineServiceRoleArn
-#      RoleArn:  !Join
-#      - '/'
-#      - - !Sub 'arn:aws:iam::${AWS::AccountId}:role'
-#        - Fn::ImportValue:
-#            !Sub '${RegionStackName}-RolePathNamespace'
-#        - Fn::ImportValue:
-#            !Sub '${RegionStackName}-CodePipelineRole'
-
 
       ArtifactStore:
         Type: S3
@@ -190,12 +165,11 @@ Resources:
                 Branch: !Ref BranchName
                 OAuthToken: !Ref CodePipelineOAuthToken
                 PollForSourceChanges: false
+                # I get this from GitHub https://github.com/settings/tokens as a logged in GitHub user .
+                # A personal access key for your GitHub repository. This is used to provide an OAuth token for connection to your repository
 
               OutputArtifacts:
                 - Name: SourceStagePipelineOutput
-
-                  # I get this from GitHub https://github.com/settings/tokens as a logged in GitHub user .
-                  # A personal access key for your GitHub repository. This is used to provide an OAuth token for connection to your repository
 
 
         - Name: Build
