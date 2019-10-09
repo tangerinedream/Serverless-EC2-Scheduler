@@ -110,9 +110,9 @@ def lambda_handler(event, context):
   resultResponseDict[WorkloadConstants.RESULT_BASE_64]=False
   resultResponseDict[WorkloadConstants.RESULT_STATUS_CODE]=WorkloadConstants.RESULT_CODE_OK_REQUEST
   resultResponseDict[WorkloadConstants.RESULT_HEADERS]={
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin':
-    '*'
+    'Content-Type'                : 'application/json',
+    'Access-Control-Allow-Origin' : '*',
+    'Access-Control-Allow-Headers': '*'
   }
   resultResponseDict[WorkloadConstants.RESULT_BODY]={}
 

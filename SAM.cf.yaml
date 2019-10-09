@@ -7,6 +7,14 @@ Parameters:
     Description: Name of stack which provisions the LambdaRole
     Type: String
 
+Globals:
+  Api:
+    # Allows an application running locally on port 8080 to call this API
+    Cors:
+      AllowMethods: "'OPTIONS,POST,GET'"
+      AllowHeaders: "'Content-Type'"
+      AllowOrigin: "'http://localhost:8080'"
+
 Resources:
   WorkloadProxy:
     Type: AWS::Serverless::Function
