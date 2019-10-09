@@ -11,9 +11,9 @@ Globals:
   Api:
     # Allows an application running locally on port 8080 to call this API
     Cors:
-      AllowMethods: "'OPTIONS,POST,GET'"
-      AllowHeaders: "'Content-Type'"
-      AllowOrigin: "'http://localhost:8080'"
+      AllowMethods: 'OPTIONS,POST,GET'
+      AllowHeaders: 'Content-Type'
+      AllowOrigin: 'http://localhost:8080'
 
 Resources:
   WorkloadProxy:
