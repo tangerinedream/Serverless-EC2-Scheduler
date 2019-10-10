@@ -11,9 +11,9 @@ Globals:
   Api:
     # Allows an application running locally on port 8080 to call this API
     Cors:
-      AllowMethods: 'OPTIONS,POST,GET'
-      AllowHeaders: 'Content-Type'
-      AllowOrigin: 'http://localhost:8080'
+      AllowMethods: "'OPTIONS,POST,GET'"
+      AllowHeaders: "'Content-Type'"
+      AllowOrigin: "'http://localhost:8080'"
 
 Resources:
   WorkloadProxy:
@@ -47,11 +47,17 @@ Resources:
       DeploymentPreference:
         Type: AllAtOnce
       Events:
-        WorkloadProxy:
+        PathAllWorkloads:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /workloads
+            Method: any
+        PathWorkload:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
             Path: /workloads/{workload+}
             Method: any
+
 
 Outputs:
   WorkloadProxyAPI:
